@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UNAUFHALTSAM – CHAOS ARENA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #030712;
+            color: #f8fafc;
+            overflow: hidden;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="w-screen h-[100dvh] flex flex-col justify-between items-center px-2 pt-2.5 pb-24 box-border select-none">
+
+    <!-- HEADER: Klarer TikTok-LIVE-Formatkopf + Statuszeile -->
+    <header class="w-full max-w-md flex flex-col gap-1.5 bg-slate-900/95 border border-slate-800 rounded-xl px-3 py-2 shadow-lg z-10">
+        <div class="flex justify-between items-center gap-1.5">
+            <div class="flex items-center gap-1.5 min-w-0">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-600 text-[10px] font-black tracking-wider text-white shrink-0">
+                    <span class="w-1.5 h-1.5 rounded-full bg-white"></span>LIVE
+                </span>
+                <span class="text-[11px] font-black tracking-wide text-slate-100 truncate">CHAOS ARENA · WELTMEISTERSCHAFT</span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+                <button id="game-start-btn" type="button" class="text-[10px] font-extrabold text-emerald-300 bg-slate-950 border border-emerald-600 px-2 py-0.5 rounded cursor-pointer">▶ START</button>
+                <button id="game-stop-btn" type="button" class="text-[10px] font-extrabold text-rose-300 bg-slate-950 border border-rose-700 px-2 py-0.5 rounded cursor-pointer" disabled>■ ENDE</button>
+                <button id="sound-toggle-btn" type="button" aria-pressed="false" class="text-[10px] font-extrabold text-slate-300 bg-slate-950 border border-slate-700 hover:border-amber-400/70 px-2 py-0.5 rounded cursor-pointer transition-colors">
+                    🔇 TON AUS
+                </button>
+                <span id="season-badge" class="text-[10px] font-extrabold text-amber-400 bg-slate-950 border border-slate-800 px-2 py-0.5 rounded shrink-0">WM #1</span>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center pt-1 border-t border-slate-800/80">
+            <div class="flex flex-col min-w-0">
+                <span id="tournament-phase" class="text-xs font-black tracking-wide text-amber-400 truncate">VORRUNDE · GRUPPE 1/10</span>
+                <span id="group-counter" class="text-[11px] font-bold text-slate-300 truncate">20 → 8 QUALIFIZIEREN SICH</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <div class="text-right">
+                    <div id="match-timer" class="text-sm font-black tabular-nums text-white leading-none">00:00</div>
+                    <div id="player-count-badge" class="text-[10px] font-extrabold text-emerald-400 mt-0.5">20 IM RING · TOP 8 WEITER</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ARENA CONTAINER (9:16 Optimiert mit maximierter Arena-Fläche) -->
+    <main id="arenaContainer" class="relative w-full max-w-md flex-1 min-h-0 my-1.5 flex justify-center items-center overflow-hidden bg-slate-950 rounded-2xl border border-slate-800 shadow-2xl">
+        <canvas id="arenaCanvas" class="w-full h-full block"></canvas>
+        <div id="game-status-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/75 z-20 pointer-events-none text-center px-4">
+            <div id="game-status-title" class="text-xl font-black text-amber-400">BEREIT ZUR WELTMEISTERSCHAFT</div>
+            <div id="game-status-subtitle" class="text-xs text-slate-200 mt-2">Oben auf START klicken</div>
+        </div>
+
+        <!-- DUELL UM DEN GRUPPENSIEG BANNER (bei den letzten 2 Kreiseln) -->
+        <div id="duel-banner" class="absolute top-2.5 left-1/2 -translate-x-1/2 bg-amber-500/95 border border-amber-200 text-slate-950 px-3.5 py-1 rounded-full text-[11px] font-black tracking-wider opacity-0 pointer-events-none transition-opacity duration-200 z-20 whitespace-nowrap shadow-lg">
+            ⚔️ DUELL UM DEN GRUPPENSIEG
+        </div>
+
+        <!-- RING-OUT EVENT BANNER (Kurz & prägnant ohne Ablenkung) -->
+        <div id="ringout-banner" class="absolute top-10 left-1/2 -translate-x-1/2 bg-slate-950/90 border border-rose-500/50 text-slate-100 px-3 py-1 rounded-full text-[11px] font-extrabold tracking-wide opacity-0 pointer-events-none transition-opacity duration-200 z-20 whitespace-nowrap shadow-lg">
+            💥 RING-OUT
+        </div>
+
+        <!-- ZUSCHAUER CALL-TO-ACTION UNTEN IN DER ARENA -->
+        <div class="absolute bottom-2 left-2.5 right-2.5 flex justify-between items-center bg-slate-950/85 border border-slate-800/90 rounded-lg px-2.5 py-1 pointer-events-none z-10">
+            <span class="text-[10px] font-extrabold text-amber-300 truncate">WELCHES LAND WIRD WELTMEISTER?</span>
+            <span class="text-[10px] font-semibold text-slate-400 shrink-0 ml-2">Land im Chat nennen</span>
+        </div>
+
+        <!-- GRUPPENSIEGER-SPOTLIGHT (4s) & QUALIFIKANTEN-ÜBERSICHT (6s) -->
+        <div id="intermission-overlay" class="absolute inset-0 bg-slate-950/95 flex flex-col justify-center items-center p-4 text-center opacity-0 pointer-events-none transition-opacity duration-300 z-30">
+            <!-- Phase 1: Gruppensieger (4 Sekunden) -->
+            <div id="group-winner-stage" class="flex flex-col items-center justify-center w-full">
+                <div id="group-winner-kicker" class="text-[11px] font-extrabold tracking-widest text-amber-400 uppercase mb-1">VORRUNDE · GRUPPE 1/10</div>
+                <div id="group-winner-flag" class="text-6xl my-2">🏆</div>
+                <h2 id="group-winner-headline" class="text-xl font-black text-white tracking-wide mb-1">GRUPPENSIEGER: DEUTSCHLAND</h2>
+                <p id="group-winner-sub" class="text-xs text-slate-300 mb-4">Letzter Überlebender nach 01:00</p>
+                <div id="group-winner-countdown" class="text-xs font-bold text-slate-200 bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl">
+                    Qualifikanten in 4s...
+                </div>
+            </div>
+
+            <!-- Phase 2: Qualifizierte Nationen mit Platzierung (6 Sekunden) -->
+            <div id="group-qualifiers-stage" class="hidden flex-col items-center justify-center w-full">
+                <h2 id="intermission-title" class="text-base font-black text-amber-400 mb-0.5">GRUPPE BEENDET</h2>
+                <p id="intermission-subtitle" class="text-[11px] text-slate-300 mb-2.5">Qualifizierte Nationen nach Platzierung:</p>
+                <div id="qualified-list" class="grid grid-cols-2 gap-1.5 w-full max-w-xs mb-3.5 text-xs font-semibold">
+                    <!-- Dynamisch gefüllt mit Platzierung 1..8 bzw. 1..5 -->
+                </div>
+                <div id="intermission-countdown" class="text-xs font-bold text-slate-200 bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl">
+                    Nächste Gruppe in 6s...
+                </div>
+            </div>
+        </div>
+
+        <!-- PODIUM / SIEGER OVERLAY + WELTMEISTER-ARCHIV -->
+        <div id="podium-overlay" class="absolute inset-0 bg-slate-950/95 flex flex-col justify-center items-center p-5 text-center opacity-0 pointer-events-none transition-opacity duration-300 z-30">
+            <div id="podium-subtitle" class="text-xs font-extrabold tracking-widest text-amber-400 mb-1.5">WELTMEISTER GEKÜRT</div>
+            <div id="winner-flag-big" class="text-6xl mb-2">🏆</div>
+            <h2 id="winner-title" class="text-2xl font-black text-white mb-1">DEUTSCHLAND</h2>
+            <p id="winner-desc" class="text-xs text-slate-300 mb-3">Gewann das Weltturnier aller 200 Nationen!</p>
+            <div class="w-full max-w-xs bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 mb-4 text-left">
+                <div class="text-[10px] font-extrabold tracking-wider text-amber-400 uppercase mb-1.5">🏆 BISHERIGE WELTMEISTER</div>
+                <div id="podium-archive-list" class="flex flex-col gap-1 max-h-28 overflow-y-auto no-scrollbar text-[11px] text-slate-200">
+                    <!-- Dynamisch gefüllt -->
+                </div>
+            </div>
+            <div id="next-round-countdown" class="text-xs font-bold text-slate-200 bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl">
+                Nächste Weltmeisterschaft in 9s...
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER: Teilnehmer im Ring & Weltmeister-Archiv oberhalb der TikTok-Chat-Safe-Zone -->
+    <footer class="w-full max-w-md bg-slate-900/95 border border-slate-800 rounded-xl px-2.5 py-2 shadow-lg z-10 flex flex-col gap-1.5">
+        <div class="flex justify-between items-center text-[11px] font-bold text-slate-200 gap-2">
+            <span id="survivors-count" class="text-emerald-400 font-extrabold shrink-0">20 NOCH IM RING</span>
+            <span id="champion-archive-ticker" class="text-[10px] font-semibold text-amber-300/90 truncate">🏆 Archiv: Noch kein Weltmeister</span>
+        </div>
+        <div id="ranking-list" class="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar text-[11px]">
+            <!-- Dynamisch gefüllt -->
+        </div>
+    </footer>
+
+    <script>
+        // 200 Eindeutige Länder ohne Duplikate mit individuellen Layouts und Farben
+        const ALL_NATIONS = [
+            { name: "Deutschland", code: "DE", colors: ["#000000", "#dd0000", "#ffce00"], layout: "horizontal" },
+            { name: "Brasilien", code: "BR", colors: ["#009b3a", "#fedf00", "#002776"], layout: "brazil" },
+            { name: "USA", code: "US", colors: ["#bf0a30", "#ffffff", "#002868"], layout: "usa" },
+            { name: "Japan", code: "JP", colors: ["#ffffff", "#bc002d"], layout: "japan" },
+            { name: "Frankreich", code: "FR", colors: ["#002654", "#ffffff", "#ed2939"], layout: "vertical" },
+            { name: "Italien", code: "IT", colors: ["#009246", "#ffffff", "#ce2b37"], layout: "vertical" },
+            { name: "Spanien", code: "ES", colors: ["#aa151b", "#f1bf00", "#aa151b"], layout: "spanish" },
+            { name: "England", code: "EN", colors: ["#ffffff", "#ce1126"], layout: "cross" },
+            { name: "Argentinien", code: "AR", colors: ["#75aadb", "#ffffff", "#75aadb"], layout: "argentina" },
+            { name: "Portugal", code: "PT", colors: ["#006600", "#ff0000", "#ffcc00"], layout: "portugal" },
+            { name: "Niederlande", code: "NL", colors: ["#ae1c28", "#ffffff", "#21468b"], layout: "horizontal" },
+            { name: "Belgien", code: "BE", colors: ["#000000", "#ffd700", "#ef3340"], layout: "vertical" },
+            { name: "Türkei", code: "TR", colors: ["#e30a17", "#ffffff"], layout: "turkey" },
+            { name: "Polen", code: "PL", colors: ["#ffffff", "#dc143c"], layout: "horizontal-half" },
+            { name: "Ukraine", code: "UA", colors: ["#005bbb", "#ffd500"], layout: "horizontal-half" },
+            { name: "Kanada", code: "CA", colors: ["#ff0000", "#ffffff"], layout: "canada" },
+            { name: "Mexiko", code: "MX", colors: ["#006341", "#ffffff", "#ce1126"], layout: "vertical" },
+            { name: "Südkorea", code: "KR", colors: ["#ffffff", "#003478", "#c60c30"], layout: "korea" },
+            { name: "Australien", code: "AU", colors: ["#00008b", "#ffffff"], layout: "australia" },
+            { name: "Marokko", code: "MA", colors: ["#c1272d", "#006233"], layout: "morocco" },
+            { name: "Schweiz", code: "CH", colors: ["#ff0000", "#ffffff"], layout: "swiss" },
+            { name: "Österreich", code: "AT", colors: ["#ed2939", "#ffffff", "#ed2939"], layout: "horizontal" },
+            { name: "Schweden", code: "SE", colors: ["#006aa7", "#fecc00"], layout: "cross" },
+            { name: "Norwegen", code: "NO", colors: ["#ba0c2f", "#00205b"], layout: "cross" },
+            { name: "Dänemark", code: "DK", colors: ["#c60c30", "#ffffff"], layout: "cross" },
+            { name: "Finnland", code: "FI", colors: ["#ffffff", "#002f6c"], layout: "cross" },
+            { name: "Irland", code: "IE", colors: ["#169b62", "#ffffff", "#ff883e"], layout: "vertical" },
+            { name: "Schottland", code: "SCT", colors: ["#0065bd", "#ffffff"], layout: "cross" },
+            { name: "Wales", code: "WAL", colors: ["#ffffff", "#00ab66", "#d50032"], layout: "horizontal-half" },
+            { name: "Kroatien", code: "HR", colors: ["#ff0000", "#ffffff", "#0000ff"], layout: "vertical" },
+            { name: "Serbien", code: "RS", colors: ["#c6363c", "#0c407c", "#ffffff"], layout: "horizontal" },
+            { name: "Griechenland", code: "GR", colors: ["#005b94", "#ffffff"], layout: "horizontal" },
+            { name: "Tschechien", code: "CZ", colors: ["#11457e", "#ffffff", "#d7141a"], layout: "horizontal-half" },
+            { name: "Ungarn", code: "HU", colors: ["#ce2939", "#ffffff", "#477050"], layout: "horizontal" },
+            { name: "Rumänien", code: "RO", colors: ["#002b7f", "#fcd116", "#ce1126"], layout: "vertical" },
+            { name: "Bulgarien", code: "BG", colors: ["#ffffff", "#00966e", "#d62612"], layout: "horizontal" },
+            { name: "Slowakei", code: "SK", colors: ["#0b4ea2", "#ffffff", "#ee1c25"], layout: "horizontal" },
+            { name: "Slowenien", code: "SI", colors: ["#ffffff", "#0000ff", "#ff0000"], layout: "horizontal" },
+            { name: "Uruguay", code: "UY", colors: ["#0038a8", "#ffffff"], layout: "horizontal" },
+            { name: "Kolumbien", code: "CO", colors: ["#fcd116", "#003893", "#ce1126"], layout: "horizontal" },
+            { name: "Chile", code: "CL", colors: ["#0033a0", "#ffffff", "#d52b1e"], layout: "horizontal-half" },
+            { name: "Peru", code: "PE", colors: ["#d91023", "#ffffff", "#d91023"], layout: "vertical" },
+            { name: "Ecuador", code: "EC", colors: ["#ffdd00", "#002b7f", "#ef3340"], layout: "horizontal" },
+            { name: "Paraguay", code: "PY", colors: ["#d52b1e", "#ffffff", "#0038a8"], layout: "horizontal" },
+            { name: "Bolivien", code: "BO", colors: ["#ce1126", "#fcd116", "#007a3d"], layout: "horizontal" },
+            { name: "Venezuela", code: "VE", colors: ["#ffcc00", "#00247d", "#cf142b"], layout: "horizontal" },
+            { name: "Costa Rica", code: "CR", colors: ["#002b7f", "#ffffff", "#ce1126"], layout: "horizontal" },
+            { name: "Panama", code: "PA", colors: ["#0038a8", "#ffffff", "#da291c"], layout: "horizontal-half" },
+            { name: "Senegal", code: "SN", colors: ["#00853f", "#fdef42", "#e31b23"], layout: "vertical" },
+            { name: "Kamerun", code: "CM", colors: ["#007a5e", "#ce1126", "#fcd116"], layout: "vertical" },
+            { name: "Ghana", code: "GH", colors: ["#ce1126", "#fcd116", "#006b3f"], layout: "horizontal" },
+            { name: "Elfenbeinküste", code: "CI", colors: ["#ff8200", "#ffffff", "#009e60"], layout: "vertical" },
+            { name: "Nigeria", code: "NG", colors: ["#008751", "#ffffff"], layout: "vertical" },
+            { name: "Ägypten", code: "EG", colors: ["#ce1126", "#ffffff", "#000000"], layout: "horizontal" },
+            { name: "Algerien", code: "DZ", colors: ["#006633", "#ffffff"], layout: "vertical" },
+            { name: "Tunesien", code: "TN", colors: ["#e70013", "#ffffff"], layout: "japan" },
+            { name: "Südafrika", code: "ZA", colors: ["#007a4d", "#de3823", "#002395", "#ffb81c"], layout: "vertical" },
+            { name: "Saudi-Arabien", code: "SA", colors: ["#006c35", "#ffffff"], layout: "horizontal-half" },
+            { name: "Katar", code: "QA", colors: ["#8a1538", "#ffffff"], layout: "horizontal-half" },
+            { name: "Iran", code: "IR", colors: ["#239f40", "#ffffff", "#da0000"], layout: "horizontal" },
+            { name: "Neuseeland", code: "NZ", colors: ["#00247d", "#cc142b", "#ffffff"], layout: "cross" },
+            { name: "Island", code: "IS", colors: ["#003897", "#ffffff", "#d72828"], layout: "cross" },
+            { name: "Albanien", code: "AL", colors: ["#e41b17", "#000000"], layout: "japan" },
+            { name: "Bosnien", code: "BIH", colors: ["#002395", "#fecb00"], layout: "horizontal-half" },
+            { name: "Nordmazedonien", code: "MK", colors: ["#d20000", "#ffe600"], layout: "japan" },
+            { name: "Montenegro", code: "MNE", colors: ["#c8102e", "#c69214"], layout: "japan" },
+            { name: "Kosovo", code: "RKS", colors: ["#244aa5", "#d2af37"], layout: "horizontal" },
+            { name: "Zypern", code: "CY", colors: ["#ffffff", "#d57a00", "#528d27"], layout: "japan" },
+            { name: "Malta", code: "MT", colors: ["#ffffff", "#cf0921"], layout: "vertical" },
+            { name: "Estland", code: "EE", colors: ["#0072ce", "#000000", "#ffffff"], layout: "horizontal" },
+            { name: "Lettland", code: "LV", colors: ["#981e32", "#ffffff", "#981e32"], layout: "horizontal" },
+            { name: "Litauen", code: "LT", colors: ["#fdb913", "#006a4e", "#c1272d"], layout: "horizontal" },
+            { name: "Luxemburg", code: "LU", colors: ["#ea141d", "#ffffff", "#00a1de"], layout: "horizontal" },
+            { name: "Liechtenstein", code: "LI", colors: ["#002b49", "#ce1126"], layout: "horizontal-half" },
+            { name: "Monaco", code: "MC", colors: ["#ce1126", "#ffffff"], layout: "horizontal-half" },
+            { name: "Andorra", code: "AD", colors: ["#10529d", "#fedf00", "#d52b1e"], layout: "vertical" },
+            { name: "San Marino", code: "SM", colors: ["#ffffff", "#00966e"], layout: "horizontal-half" },
+            { name: "Vatikanstadt", code: "VA", colors: ["#ffe000", "#ffffff"], layout: "vertical" },
+            { name: "Angola", code: "AO", colors: ["#ce1126", "#000000", "#fcd116"], layout: "horizontal-half" },
+            { name: "Benin", code: "BJ", colors: ["#008751", "#fcd116", "#e8112d"], layout: "vertical" },
+            { name: "Botsuana", code: "BW", colors: ["#00aeef", "#ffffff", "#000000"], layout: "horizontal" },
+            { name: "Burkina Faso", code: "BF", colors: ["#ef3340", "#009639", "#fcd116"], layout: "horizontal-half" },
+            { name: "Burundi", code: "BI", colors: ["#ce1126", "#008751", "#ffffff"], layout: "cross" },
+            { name: "Dschibuti", code: "DJ", colors: ["#00b0ca", "#6ab023", "#ffffff"], layout: "horizontal-half" },
+            { name: "Äquatorialguinea", code: "GQ", colors: ["#00732f", "#ffffff", "#001489"], layout: "horizontal" },
+            { name: "Eritrea", code: "ER", colors: ["#ed1c24", "#00853f", "#333333"], layout: "horizontal" },
+            { name: "Eswatini", code: "SZ", colors: ["#482d85", "#fedf00", "#333333"], layout: "horizontal" },
+            { name: "Äthiopien", code: "ET", colors: ["#078930", "#fcd116", "#da121a"], layout: "horizontal" },
+            { name: "Gabun", code: "GA", colors: ["#009e60", "#fcd116", "#0072ce"], layout: "horizontal" },
+            { name: "Gambia", code: "GM", colors: ["#ce1126", "#0072ce", "#3a9e3b"], layout: "horizontal" },
+            { name: "Guinea", code: "GN", colors: ["#ce1126", "#fcd116", "#009460"], layout: "vertical" },
+            { name: "Guinea-Bissau", code: "GW", colors: ["#ce1126", "#fcd116", "#009e60"], layout: "vertical" },
+            { name: "Kenia", code: "KE", colors: ["#000000", "#bb0000", "#006600"], layout: "horizontal" },
+            { name: "Lesotho", code: "LS", colors: ["#002094", "#ffffff", "#000000"], layout: "horizontal" },
+            { name: "Liberia", code: "LR", colors: ["#bf0a30", "#ffffff", "#002868"], layout: "horizontal" },
+            { name: "Libyen", code: "LY", colors: ["#000000", "#ed2939", "#009e60"], layout: "horizontal" },
+            { name: "Madagaskar", code: "MG", colors: ["#ffffff", "#fc3d32", "#007a3d"], layout: "horizontal-half" },
+            { name: "Malawi", code: "MW", colors: ["#000000", "#ce1126", "#d4af37"], layout: "horizontal" },
+            { name: "Mali", code: "ML", colors: ["#14b53a", "#fcd116", "#ce1126"], layout: "vertical" },
+            { name: "Mauretanien", code: "MR", colors: ["#006233", "#fcd116"], layout: "japan" },
+            { name: "Mauritius", code: "MU", colors: ["#ea1d2c", "#1a2b4c", "#ffcc00"], layout: "horizontal" },
+            { name: "Mosambik", code: "MZ", colors: ["#007a3d", "#000000", "#fcd116"], layout: "horizontal" },
+            { name: "Namibia", code: "NA", colors: ["#003580", "#009543", "#d21034"], layout: "horizontal-half" },
+            { name: "Niger", code: "NE", colors: ["#e05206", "#ffffff", "#0db14b"], layout: "horizontal" },
+            { name: "Republik Kongo", code: "CG", colors: ["#009543", "#fcd116", "#002b7f"], layout: "horizontal-half" },
+            { name: "Ruanda", code: "RW", colors: ["#00a1de", "#fcd116", "#20603d"], layout: "horizontal" },
+            { name: "Sambia", code: "ZM", colors: ["#198a00", "#ef3340", "#000000"], layout: "vertical" },
+            { name: "Simbabwe", code: "ZW", colors: ["#006400", "#ffd700", "#d4af37"], layout: "horizontal" },
+            { name: "Sao Tome", code: "ST", colors: ["#12ad2b", "#d21034", "#ffcc00"], layout: "horizontal" },
+            { name: "Seychellen", code: "SC", colors: ["#003893", "#fcd116", "#d62828"], layout: "vertical" },
+            { name: "Sierra Leone", code: "SL", colors: ["#1eb53a", "#ffffff", "#0072ce"], layout: "horizontal" },
+            { name: "Somalia", code: "SO", colors: ["#4189dd", "#ffffff"], layout: "cross" },
+            { name: "Sudan", code: "SD", colors: ["#d21034", "#ffffff", "#000000"], layout: "horizontal" },
+            { name: "Südsudan", code: "SSD", colors: ["#000000", "#da121a", "#078930"], layout: "horizontal" },
+            { name: "Tschad", code: "TD", colors: ["#002b7f", "#fcd116", "#c60c30"], layout: "vertical" },
+            { name: "Togo", code: "TG", colors: ["#006a4e", "#ffce00", "#d52b1e"], layout: "horizontal" },
+            { name: "Uganda", code: "UG", colors: ["#000000", "#fcd116", "#d52b1e"], layout: "horizontal" },
+            { name: "Zentralafrika", code: "CF", colors: ["#0038a8", "#ffffff", "#009e60"], layout: "horizontal" },
+            { name: "Antigua", code: "AG", colors: ["#ce1126", "#000000", "#002b7f"], layout: "horizontal-half" },
+            { name: "Bahamas", code: "BS", colors: ["#00abc7", "#fcd116", "#000000"], layout: "horizontal" },
+            { name: "Barbados", code: "BB", colors: ["#00267f", "#ffc72c", "#00267f"], layout: "vertical" },
+            { name: "Belize", code: "BZ", colors: ["#0038a8", "#ce1126", "#ffffff"], layout: "horizontal" },
+            { name: "Dominica", code: "DM", colors: ["#006b3f", "#fcd116", "#ce1126"], layout: "cross" },
+            { name: "Dominikanische Republik", code: "DO", colors: ["#002d62", "#ffffff", "#ce1126"], layout: "cross" },
+            { name: "El Salvador", code: "SV", colors: ["#002b7f", "#ffffff"], layout: "horizontal" },
+            { name: "Grenada", code: "GD", colors: ["#ce1126", "#fcd116", "#007a3d"], layout: "cross" },
+            { name: "Guatemala", code: "GT", colors: ["#4997d0", "#ffffff"], layout: "vertical" },
+            { name: "Hayana", code: "GY", colors: ["#006847", "#fcd116", "#ce1126"], layout: "horizontal-half" },
+            { name: "Haiti", code: "HT", colors: ["#00209f", "#d52b1e"], layout: "horizontal-half" },
+            { name: "Honduras", code: "HN", colors: ["#0073cf", "#ffffff"], layout: "horizontal" },
+            { name: "Jamaika", code: "JM", colors: ["#000000", "#fcd116", "#007a3d"], layout: "cross" },
+            { name: "Nicaragua", code: "NI", colors: ["#006747", "#ffffff"], layout: "horizontal" },
+            { name: "St. Kitts", code: "KN", colors: ["#009e60", "#ce1126", "#fcd116"], layout: "horizontal-half" },
+            { name: "St. Lucia", code: "LC", colors: ["#66ccff", "#000000", "#fcd116"], layout: "cross" },
+            { name: "St. Vincent", code: "VC", colors: ["#0072ce", "#fcd116", "#009e60"], layout: "vertical" },
+            { name: "Trinidad", code: "TT", colors: ["#ce1126", "#000000", "#ffffff"], layout: "horizontal-half" },
+            { name: "Afghanistan", code: "AF", colors: ["#000000", "#d31c1c", "#007a36"], layout: "vertical" },
+            { name: "Armenien", code: "AM", colors: ["#d90012", "#0033a0", "#f2a800"], layout: "horizontal" },
+            { name: "Aserbaidschan", code: "AZ", colors: ["#0095c8", "#ed2939", "#3f9c35"], layout: "horizontal" },
+            { name: "Bahrain", code: "BH", colors: ["#ffffff", "#e00034"], layout: "vertical" },
+            { name: "Bangladesch", code: "BD", colors: ["#006a4e", "#f42a41"], layout: "japan" },
+            { name: "Bhutan", code: "BT", colors: ["#ffcd00", "#ff4e12"], layout: "horizontal-half" },
+            { name: "Brunei", code: "BN", colors: ["#f7e117", "#ffffff", "#000000"], layout: "horizontal-half" },
+            { name: "Kambodscha", code: "KH", colors: ["#032ea1", "#e00025"], layout: "horizontal" },
+            { name: "China", code: "CN", colors: ["#ee1c25", "#ffde00"], layout: "japan" },
+            { name: "Osttimor", code: "TL", colors: ["#d91023", "#fcd116", "#000000"], layout: "horizontal-half" },
+            { name: "Georgien", code: "GE", colors: ["#ffffff", "#ff0000"], layout: "cross" },
+            { name: "Indien", code: "IN", colors: ["#ff9933", "#ffffff", "#138808"], layout: "horizontal" },
+            { name: "Indonesien", code: "ID", colors: ["#ff0000", "#ffffff"], layout: "horizontal-half" },
+            { name: "Irak", code: "IQ", colors: ["#ce1126", "#ffffff", "#000000"], layout: "horizontal" },
+            { name: "Kasachstan", code: "KZ", colors: ["#00af66", "#fcd116"], layout: "japan" },
+            { name: "Kuwait", code: "KW", colors: ["#007a3d", "#ffffff", "#ce1126"], layout: "horizontal" },
+            { name: "Kirgisistan", code: "KG", colors: ["#e8112d", "#fcd116"], layout: "japan" },
+            { name: "Laos", code: "LA", colors: ["#ce1126", "#002868", "#ffffff"], layout: "horizontal" },
+            { name: "Libanon", code: "LB", colors: ["#ed1c24", "#ffffff", "#007a3d"], layout: "horizontal" },
+            { name: "Malaysia", code: "MY", colors: ["#0038a8", "#ffffff", "#cc0000"], layout: "horizontal" },
+            { name: "Malediven", code: "MV", colors: ["#d91023", "#007a3d", "#ffffff"], layout: "horizontal" },
+            { name: "Mongolei", code: "MN", colors: ["#d21034", "#0033a0", "#fcd116"], layout: "vertical" },
+            { name: "Myanmar", code: "MM", colors: ["#fcd116", "#34b233", "#ce1126"], layout: "horizontal" },
+            { name: "Nepal", code: "NP", colors: ["#dc143c", "#003893"], layout: "horizontal-half" },
+            { name: "Nordkorea", code: "PRK", colors: ["#024fa2", "#ed1c24", "#ffffff"], layout: "horizontal" },
+            { name: "Oman", code: "OM", colors: ["#db1f35", "#ffffff", "#008000"], layout: "horizontal" },
+            { name: "Pakistan", code: "PK", colors: ["#01411c", "#ffffff"], layout: "vertical" },
+            { name: "Philippinen", code: "PH", colors: ["#0038a8", "#ce1126", "#ffffff"], layout: "horizontal-half" },
+            { name: "Singapur", code: "SG", colors: ["#ed2939", "#ffffff"], layout: "horizontal-half" },
+            { name: "Sri Lanka", code: "LK", colors: ["#ffbe29", "#8b0000", "#006400"], layout: "vertical" },
+            { name: "Syrien", code: "SY", colors: ["#ce1126", "#ffffff", "#000000"], layout: "horizontal" },
+            { name: "Tadschikistan", code: "TJ", colors: ["#cc0000", "#ffffff", "#006600"], layout: "horizontal" },
+            { name: "Thailand", code: "TH", colors: ["#a51931", "#ffffff", "#241d4f"], layout: "horizontal" },
+            { name: "Turkmenistan", code: "TM", colors: ["#006633", "#d4af37"], layout: "horizontal" },
+            { name: "Usbekistan", code: "UZ", colors: ["#0099b5", "#ffffff", "#1eb53a"], layout: "horizontal" },
+            { name: "Vietnam", code: "VN", colors: ["#da251d", "#ffcc00"], layout: "japan" },
+            { name: "Jemen", code: "YE", colors: ["#ce1126", "#ffffff", "#000000"], layout: "horizontal" },
+            { name: "Fidschi", code: "FJ", colors: ["#68b5e6", "#ffffff", "#002b7f"], layout: "cross" },
+            { name: "Kiribati", code: "KI", colors: ["#ce1126", "#ffffff", "#0038a8"], layout: "horizontal" },
+            { name: "Marshallinseln", code: "MHL", colors: ["#002b7f", "#ffffff", "#ff6600"], layout: "horizontal-half" },
+            { name: "Mikronesien", code: "FSM", colors: ["#68b5e6", "#ffffff"], layout: "cross" },
+            { name: "Nauru", code: "NR", colors: ["#002b7f", "#ffcc00"], layout: "horizontal" },
+            { name: "Palau", code: "PW", colors: ["#4aadd6", "#ffde00"], layout: "japan" },
+            { name: "Papua-Neuguinea", code: "PG", colors: ["#ce1126", "#000000", "#fcd116"], layout: "horizontal-half" },
+            { name: "Salomonen", code: "SB", colors: ["#0051ba", "#fcd116", "#228b22"], layout: "horizontal-half" },
+            { name: "Tonga", code: "TO", colors: ["#c1121c", "#ffffff"], layout: "cross" },
+            { name: "Tuvalu", code: "TV", colors: ["#4aadd6", "#ffffff", "#ce1126"], layout: "cross" },
+            { name: "Vanuatu", code: "VU", colors: ["#d21034", "#006400", "#000000", "#ffd700"], layout: "horizontal-half" },
+            { name: "Samoa", code: "WS", colors: ["#ce1126", "#002b7f", "#ffffff"], layout: "horizontal-half" },
+            { name: "Taiwan", code: "TW", colors: ["#fe0000", "#000095", "#ffffff"], layout: "horizontal" },
+            { name: "Palästina", code: "PS", colors: ["#000000", "#ffffff", "#007a3d"], layout: "horizontal" },
+            { name: "Moldau", code: "MD", colors: ["#0046ae", "#ffd200", "#cc092f"], layout: "vertical" },
+            { name: "Belarus", code: "BY", colors: ["#c8313e", "#4aa657"], layout: "horizontal-half" },
+            { name: "Russland", code: "RU", colors: ["#ffffff", "#0039a6", "#d52b1e"], layout: "horizontal" },
+            { name: "Kuba", code: "CU", colors: ["#002a8f", "#ffffff", "#cf142b"], layout: "horizontal" },
+            { name: "Suriname", code: "SR", colors: ["#377e3f", "#ffffff", "#b40a2d"], layout: "horizontal" },
+            { name: "DR Kongo", code: "CD", colors: ["#007fff", "#f7d618", "#ce1021"], layout: "horizontal" },
+            { name: "Tansania", code: "TZ", colors: ["#1eb53a", "#fcd116", "#00a3dd"], layout: "horizontal" },
+            { name: "Komoren", code: "KM", colors: ["#ffc61e", "#ffffff", "#ce1126"], layout: "horizontal" },
+            { name: "Kap Verde", code: "CV", colors: ["#003893", "#ffffff", "#cf2027"], layout: "horizontal" },
+            { name: "Macau", code: "MO", colors: ["#00785e", "#ffffff"], layout: "japan" },
+            { name: "Cookinseln", code: "CK", colors: ["#00247d", "#ffffff"], layout: "cross" },
+            { name: "Niue", code: "NU", colors: ["#fce100", "#00247d"], layout: "cross" },
+            { name: "Gibraltar", code: "GI", colors: ["#ffffff", "#da291c"], layout: "horizontal-half" },
+        ];
+
+        // Leichtgewichtiges Web-Audio-Soundsystem (ohne externe Dateien, beachtet Browser-Audiosperre)
+        const SoundEngine = (() => {
+            let audioCtx = null;
+            let enabled = false;
+            let activeVoices = 0;
+            const MAX_VOICES = 4;
+            let lastClashAt = 0;
+            let lastRingOutAt = 0;
+
+            function updateToggleUI() {
+                const btn = document.getElementById('sound-toggle-btn');
+                if (!btn) return;
+                if (enabled) {
+                    btn.textContent = '🔊 TON AN';
+                    btn.setAttribute('aria-pressed', 'true');
+                    btn.className = 'text-[10px] font-extrabold text-amber-300 bg-slate-950 border border-amber-400/70 px-2 py-0.5 rounded cursor-pointer transition-colors';
+                } else {
+                    btn.textContent = '🔇 TON AUS';
+                    btn.setAttribute('aria-pressed', 'false');
+                    btn.className = 'text-[10px] font-extrabold text-slate-300 bg-slate-950 border border-slate-700 hover:border-amber-400/70 px-2 py-0.5 rounded cursor-pointer transition-colors';
+                }
+            }
+
+            function ensureContextFromGesture() {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return false;
+                if (!audioCtx) {
+                    audioCtx = new AudioContextClass();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume().catch(() => {});
+                }
+                return true;
+            }
+
+            function canPlay() {
+                return enabled && audioCtx && audioCtx.state === 'running' && activeVoices < MAX_VOICES;
+            }
+
+            function trackVoice(durationSec) {
+                activeVoices++;
+                setTimeout(() => {
+                    activeVoices = Math.max(0, activeVoices - 1);
+                }, Math.ceil(durationSec * 1000) + 20);
+            }
+
+            // 1. Kurzer metallischer Klang bei deutlichen Kollisionen (leise, mit Anti-Dauerfeuer-Sperre)
+            function playClash(impactStrength) {
+                if (!canPlay()) return;
+                const nowMs = performance.now();
+                if (nowMs - lastClashAt < 110) return;
+                lastClashAt = nowMs;
+
+                try {
+                    const t = audioCtx.currentTime;
+                    const dur = 0.085;
+                    const intensity = Math.max(0.25, Math.min(1.0, (impactStrength - 28) / 70));
+                    const baseFreq = 780 + Math.random() * 240;
+
+                    const osc1 = audioCtx.createOscillator();
+                    const osc2 = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+
+                    osc1.type = 'triangle';
+                    osc2.type = 'sine';
+                    osc1.frequency.setValueAtTime(baseFreq, t);
+                    osc1.frequency.exponentialRampToValueAtTime(baseFreq * 0.58, t + dur);
+                    osc2.frequency.setValueAtTime(baseFreq * 1.48, t);
+                    osc2.frequency.exponentialRampToValueAtTime(baseFreq * 0.85, t + dur);
+
+                    const peakGain = 0.055 * intensity;
+                    gain.gain.setValueAtTime(0.0001, t);
+                    gain.gain.linearRampToValueAtTime(peakGain, t + 0.006);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+                    osc1.connect(gain);
+                    osc2.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc1.start(t);
+                    osc2.start(t);
+                    osc1.stop(t + dur);
+                    osc2.stop(t + dur);
+                    trackVoice(dur);
+                } catch (e) {
+                    // Spielfluss bleibt bei Audiofehlern unberührt
+                }
+            }
+
+            // 2. Kräftiger Ring-Out-Sound bei einer tatsächlichen Ausscheidung (mittlere-hohe Lautstärke)
+            function playRingOut() {
+                if (!canPlay()) return;
+                const nowMs = performance.now();
+                if (nowMs - lastRingOutAt < 180) return;
+                lastRingOutAt = nowMs;
+
+                try {
+                    const t = audioCtx.currentTime;
+                    const dur = 0.34;
+
+                    const subOsc = audioCtx.createOscillator();
+                    const subGain = audioCtx.createGain();
+                    subOsc.type = 'sawtooth';
+                    subOsc.frequency.setValueAtTime(210, t);
+                    subOsc.frequency.exponentialRampToValueAtTime(48, t + dur);
+
+                    const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(680, t);
+                    filter.frequency.exponentialRampToValueAtTime(140, t + dur);
+
+                    subGain.gain.setValueAtTime(0.0001, t);
+                    subGain.gain.linearRampToValueAtTime(0.16, t + 0.015);
+                    subGain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+                    subOsc.connect(filter);
+                    filter.connect(subGain);
+                    subGain.connect(audioCtx.destination);
+
+                    subOsc.start(t);
+                    subOsc.stop(t + dur);
+                    trackVoice(dur);
+                } catch (e) {
+                    // Spielfluss bleibt bei Audiofehlern unberührt
+                }
+            }
+
+            // 3. Kurze Siegesfanfare für den letzten überlebenden Kreisel (prägnant, klar abgesetzt)
+            function playVictoryFanfare(isWorldFinal) {
+                if (!enabled || !audioCtx || audioCtx.state !== 'running') return;
+                try {
+                    const t = audioCtx.currentTime;
+                    const notes = isWorldFinal
+                        ? [523.25, 659.25, 783.99, 1046.5] // C5 - E5 - G5 - C6
+                        : [440.0, 554.37, 659.25, 880.0];  // A4 - C#5 - E5 - A5
+                    const step = 0.11;
+                    const totalDur = notes.length * step + 0.28;
+
+                    notes.forEach((freq, idx) => {
+                        const start = t + idx * step;
+                        const noteDur = idx === notes.length - 1 ? 0.36 : 0.14;
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, start);
+
+                        const vol = idx === notes.length - 1 ? 0.19 : 0.14;
+                        gain.gain.setValueAtTime(0.0001, start);
+                        gain.gain.linearRampToValueAtTime(vol, start + 0.015);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, start + noteDur);
+
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+
+                        osc.start(start);
+                        osc.stop(start + noteDur);
+                    });
+                    trackVoice(totalDur);
+                } catch (e) {
+                    // Spielfluss bleibt bei Audiofehlern unberührt
+                }
+            }
+
+            function toggleByUserGesture() {
+                if (!enabled) {
+                    const supported = ensureContextFromGesture();
+                    if (!supported) return;
+                    enabled = true;
+                    updateToggleUI();
+                    // Dezenter Bestätigungston direkt innerhalb der Benutzerinteraktion
+                    if (audioCtx && audioCtx.state === 'running') {
+                        playClash(55);
+                    }
+                } else {
+                    enabled = false;
+                    updateToggleUI();
+                }
+            }
+
+            function init() {
+                const btn = document.getElementById('sound-toggle-btn');
+                if (btn) {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleByUserGesture();
+                    });
+                }
+                updateToggleUI();
+            }
+
+            return {
+                init,
+                playClash,
+                playRingOut,
+                playVictoryFanfare
+            };
+        })();
+
+        SoundEngine.init();
+
+        const canvas = document.getElementById('arenaCanvas');
+        const ctx = canvas.getContext('2d');
+        const MAX_SPARKS = 80;
+        const ARCHIVE_STORAGE_KEY = 'chaos_arena_world_champions_v1';
+
+        function loadChampionArchive() {
+            try {
+                const raw = localStorage.getItem(ARCHIVE_STORAGE_KEY);
+                const parsed = raw ? JSON.parse(raw) : [];
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveChampionArchive(list) {
+            try {
+                localStorage.setItem(ARCHIVE_STORAGE_KEY, JSON.stringify(list.slice(0, 50)));
+            } catch (e) {
+                // Ignorieren falls Speicher blockiert
+            }
+        }
+
+        const gameState = {
+            runMode: 'stopped', // stopped, running, paused
+            phaseType: 'VORRUNDE', // VORRUNDE, ZWISCHENRUNDE, FINALE
+            groupIndex: 0,
+            canvasW: 0,
+            canvasH: 0,
+            arenaRadius: 180,
+            players: [],
+            qualifiedVorrunde: [],
+            qualifiedZwischenrunde: [],
+            eliminationOrder: [],
+            sparks: [],
+            winner: null,
+            intermissionTimer: 6,
+            podiumTimer: 9,
+            activeCountdownInterval: null,
+            ringoutBannerTimeout: null,
+            duelBannerShown: false,
+            simTime: 0,
+            stageCompleted: false,
+            transitioning: false,
+            lastUiRenderAt: 0,
+            championsArchive: loadChampionArchive()
+        };
+
+        function clearActiveCountdown() {
+            if (gameState.activeCountdownInterval !== null) {
+                clearInterval(gameState.activeCountdownInterval);
+                gameState.activeCountdownInterval = null;
+            }
+        }
+
+        function formatMatchClock(seconds) {
+            const safeSeconds = Math.max(0, Math.floor(seconds || 0));
+            const mins = Math.floor(safeSeconds / 60);
+            const secs = safeSeconds % 60;
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function updateArchiveUI() {
+            const seasonNum = gameState.championsArchive.length + 1;
+            const seasonBadge = document.getElementById('season-badge');
+            if (seasonBadge) seasonBadge.textContent = `WM #${seasonNum}`;
+
+            const tickerEl = document.getElementById('champion-archive-ticker');
+            if (tickerEl) {
+                if (gameState.championsArchive.length === 0) {
+                    tickerEl.textContent = '🏆 Archiv: Erster Weltmeister wird gesucht';
+                } else {
+                    const recent = gameState.championsArchive
+                        .slice(0, 3)
+                        .map(entry => `#${entry.season} ${flagEmoji(entry.code)} ${entry.name}`)
+                        .join(' · ');
+                    tickerEl.textContent = `🏆 ${recent}`;
+                }
+            }
+
+            const podiumList = document.getElementById('podium-archive-list');
+            if (podiumList) {
+                podiumList.innerHTML = '';
+                gameState.championsArchive.slice(0, 10).forEach(entry => {
+                    const row = document.createElement('div');
+                    row.className = 'flex justify-between items-center bg-slate-950/80 border border-slate-800/80 rounded px-2 py-1';
+                    row.innerHTML = `<span class="font-bold text-slate-100 truncate">#${entry.season} ${flagEmoji(entry.code)} ${entry.name}</span><span class="text-[10px] text-slate-400 shrink-0 ml-2">${entry.duration || ''}</span>`;
+                    podiumList.appendChild(row);
+                });
+            }
+        }
+
+        function announceRingOut(eliminatedPlayer) {
+            const banner = document.getElementById('ringout-banner');
+            if (!banner) return;
+            if (gameState.ringoutBannerTimeout !== null) {
+                clearTimeout(gameState.ringoutBannerTimeout);
+            }
+            const attackerText = eliminatedPlayer.lastAttacker ? ` durch ${eliminatedPlayer.lastAttacker}` : '';
+            banner.textContent = `💥 ${flagEmoji(eliminatedPlayer.code)} ${eliminatedPlayer.name} RAUS${attackerText}`;
+            banner.classList.remove('opacity-0');
+            gameState.ringoutBannerTimeout = setTimeout(() => {
+                banner.classList.add('opacity-0');
+                gameState.ringoutBannerTimeout = null;
+            }, 2200);
+        }
+
+        function resizeCanvas(force = false) {
+            const container = canvas.parentElement;
+            if (!container) return;
+            // Die Arena wird nur vor einer neuen Gruppe neu vermessen.
+            // Während eines laufenden Kampfes bleiben Koordinaten und Größe fix.
+            if (!force && gameState.canvasW && gameState.canvasH) return;
+            const rect = container.getBoundingClientRect();
+            const width = Math.max(240, Math.round(rect.width || container.clientWidth));
+            const height = Math.max(240, Math.round(rect.height || container.clientHeight));
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            gameState.canvasW = width;
+            gameState.canvasH = height;
+            canvas.width = Math.round(width * dpr);
+            canvas.height = Math.round(height * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            gameState.arenaRadius = Math.max(80, Math.min(width, height) * 0.46);
+        }
+
+        window.addEventListener('resize', () => {
+            if (gameState.runMode === 'stopped') resizeCanvas(true);
+        });
+        resizeCanvas(true);
+        requestAnimationFrame(() => {
+            if (gameState.runMode === 'stopped') resizeCanvas(true);
+        });
+
+        function updateRunControls() {
+            const startBtn = document.getElementById('game-start-btn');
+            const stopBtn = document.getElementById('game-stop-btn');
+            const overlay = document.getElementById('game-status-overlay');
+            const title = document.getElementById('game-status-title');
+            const subtitle = document.getElementById('game-status-subtitle');
+            startBtn.textContent = gameState.runMode === 'running' ? 'Ⅱ PAUSE' :
+                gameState.runMode === 'paused' ? '▶ WEITER' : '▶ START';
+            stopBtn.disabled = gameState.runMode === 'stopped';
+            stopBtn.style.opacity = stopBtn.disabled ? '0.45' : '1';
+            if (gameState.runMode === 'running') {
+                overlay.classList.add('hidden');
+            } else {
+                overlay.classList.remove('hidden');
+                title.textContent = gameState.runMode === 'paused' ? 'PAUSE' : 'BEREIT ZUR WELTMEISTERSCHAFT';
+                subtitle.textContent = gameState.runMode === 'paused' ? 'Mit WEITER fortsetzen' : 'Oben auf START klicken';
+            }
+        }
+
+        function stopTournament() {
+            clearActiveCountdown();
+            if (gameState.ringoutBannerTimeout !== null) {
+                clearTimeout(gameState.ringoutBannerTimeout);
+                gameState.ringoutBannerTimeout = null;
+            }
+            gameState.runMode = 'stopped';
+            gameState.phaseType = 'VORRUNDE';
+            gameState.groupIndex = 0;
+            gameState.qualifiedVorrunde = [];
+            gameState.qualifiedZwischenrunde = [];
+            startTournamentStage();
+            updateRunControls();
+        }
+
+        document.getElementById('game-start-btn').addEventListener('click', () => {
+            if (gameState.runMode === 'stopped') {
+                gameState.runMode = 'running';
+                startTournamentStage();
+            } else {
+                gameState.runMode = gameState.runMode === 'running' ? 'paused' : 'running';
+            }
+            lastTime = performance.now();
+            updateRunControls();
+        });
+        document.getElementById('game-stop-btn').addEventListener('click', stopTournament);
+
+        function startTournamentStage() {
+            clearActiveCountdown();
+            resizeCanvas(true);
+            gameState.players = [];
+            gameState.sparks = [];
+            gameState.eliminationOrder = [];
+            gameState.winner = null;
+            gameState.duelBannerShown = false;
+            gameState.simTime = 0;
+            gameState.stageCompleted = false;
+            gameState.transitioning = false;
+            gameState.lastUiRenderAt = 0;
+            document.getElementById('intermission-overlay').classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('podium-overlay').classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('ringout-banner').classList.add('opacity-0');
+            document.getElementById('duel-banner').classList.add('opacity-0');
+
+            let pool = [];
+            let phaseTitle = "VORRUNDE · GRUPPE 1/10";
+            let groupRuleText = "20 → 1 SIEGER (TOP 8 WEITER)";
+            let advanceBadgeText = "TOP 8 WEITER";
+
+            if (gameState.phaseType === 'VORRUNDE') {
+                const startIdx = gameState.groupIndex * 20;
+                pool = ALL_NATIONS.slice(startIdx, startIdx + 20);
+                phaseTitle = `VORRUNDE · GRUPPE ${gameState.groupIndex + 1}/10`;
+                groupRuleText = "20 → 1 SIEGER (TOP 8 WEITER)";
+                advanceBadgeText = "TOP 8 WEITER";
+            } else if (gameState.phaseType === 'ZWISCHENRUNDE') {
+                const startIdx = gameState.groupIndex * 20;
+                pool = gameState.qualifiedVorrunde.slice(startIdx, startIdx + 20);
+                phaseTitle = `ZWISCHENRUNDE · GRUPPE ${gameState.groupIndex + 1}/4`;
+                groupRuleText = "20 → 1 SIEGER (TOP 5 WEITER)";
+                advanceBadgeText = "TOP 5 WEITER";
+            } else if (gameState.phaseType === 'FINALE') {
+                pool = gameState.qualifiedZwischenrunde;
+                phaseTitle = "WELTFINALE · 20 FINALISTEN";
+                groupRuleText = "20 → 1 WELTMEISTER";
+                advanceBadgeText = "1 SIEGER";
+            }
+
+            document.getElementById('tournament-phase').innerText = phaseTitle;
+            document.getElementById('group-counter').innerText = groupRuleText;
+            document.getElementById('match-timer').innerText = "00:00";
+            document.getElementById('player-count-badge').innerText = `${pool.length} IM RING · ${advanceBadgeText}`;
+            document.getElementById('survivors-count').innerText = `${pool.length} NOCH IM RING`;
+            updateArchiveUI();
+
+            const centerX = gameState.canvasW / 2;
+            const centerY = gameState.canvasH / 2;
+            const maxSpawnR = gameState.arenaRadius * 0.72;
+            const beyRadius = Math.max(13, Math.min(16, gameState.arenaRadius * 0.084));
+
+            // Gleichmäßige Fermat-Spiral-Verteilung über die gesamte Arena mit kontrolliertem Starttempo
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+            pool.forEach((nat, idx) => {
+                const frac = (idx + 0.5) / pool.length;
+                const r = Math.sqrt(frac) * maxSpawnR;
+                const theta = idx * goldenAngle;
+
+                const tangentAngle = theta + (Math.random() < 0.5 ? Math.PI / 2 : -Math.PI / 2) + (Math.random() - 0.5) * 0.5;
+                const initSpeed = 52 + Math.random() * 26;
+
+                gameState.players.push({
+                    id: idx,
+                    name: nat.name,
+                    code: nat.code,
+                    nation: nat,
+                    x: centerX + Math.cos(theta) * r,
+                    y: centerY + Math.sin(theta) * r,
+                    vx: Math.cos(tangentAngle) * initSpeed,
+                    vy: Math.sin(tangentAngle) * initSpeed,
+                    radius: beyRadius,
+                    mass: 1.0,
+                    maxSpeed: 108,
+                    rotation: Math.random() * Math.PI * 2,
+                    spinSpeed: (Math.random() < 0.5 ? -1 : 1) * (5.2 + Math.random() * 2.5),
+                    alive: true,
+                    eliminatedAt: null,
+                    lastAttacker: null,
+                    lastHitTime: -100,
+                    hitsLanded: 0,
+                    hitsTaken: 0,
+                    tacticClock: 0.6 + Math.random() * 1.6,
+                    tactic: idx % 4,
+                    orbitSign: (idx % 2 === 0) ? 1 : -1,
+                    roamAngle: Math.random() * Math.PI * 2
+                });
+            });
+
+            updateRankingUI();
+        }
+
+        startTournamentStage();
+        updateRunControls();
+
+        function pushSpark(spark) {
+            if (gameState.sparks.length >= MAX_SPARKS) {
+                gameState.sparks.shift();
+            }
+            gameState.sparks.push(spark);
+        }
+
+        function createSparks(x, y) {
+            for (let i = 0; i < 4; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 70 + 25;
+                pushSpark({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 0.35,
+                    maxLife: 0.35,
+                    color: '#ffce00'
+                });
+            }
+        }
+
+        function createRingOutSparks(x, y) {
+            for (let i = 0; i < 12; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 130 + 45;
+                pushSpark({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 0.5,
+                    maxLife: 0.5,
+                    color: '#ef4444'
+                });
+            }
+        }
+
+        let lastTime = performance.now();
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                lastTime = performance.now();
+            }
+        });
+
+        function gameLoop(timestamp) {
+            // App-Wechsel-Schutz: Zeitdelta hart auf max. 40ms begrenzen, damit keine Zeitsprünge entstehen
+            const rawDt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            const dt = (rawDt > 0 && rawDt < 0.25) ? Math.min(rawDt, 0.04) : 0.016;
+
+            if (gameState.runMode === 'running' && !gameState.transitioning) updateSimulation(dt);
+            drawScene();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function getEffectiveRadius(elapsed) {
+            // Erste 20 Sekunden volle Arena für intensive Duelle im gesamten Ring;
+            // ab Sekunde 20 allmähliche Kontraktion bis auf 22 % des Ausgangsradius,
+            // damit alle 19 Ausscheidungen inklusive spannendem 1v1-Endkampf in ca. 55–70s stattfinden.
+            const shrink = Math.max(0, Math.min(0.78, (elapsed - 20) / 52));
+            return gameState.arenaRadius * (1 - shrink);
+        }
+
+        function buildRankedStandings(groupWinner) {
+            // Platz 1 ist der letzte Überlebende; Platz 2..20 ergeben sich exakt
+            // in umgekehrter Reihenfolge des Ausscheidens (zuletzt ausgeschieden = Platz 2).
+            const ranked = [groupWinner];
+            for (let i = gameState.eliminationOrder.length - 1; i >= 0; i--) {
+                const candidate = gameState.eliminationOrder[i];
+                if (!ranked.some(entry => entry.id === candidate.id)) {
+                    ranked.push(candidate);
+                }
+            }
+            // Sicherheits-Fallback falls jemals ein Teilnehmer fehlen sollte
+            gameState.players.forEach(p => {
+                if (!ranked.some(entry => entry.id === p.id)) {
+                    ranked.push(p);
+                }
+            });
+            return ranked;
+        }
+
+        function updateSimulation(dt) {
+            const alivePlayers = gameState.players.filter(p => p.alive);
+            const advanceCount = gameState.phaseType === 'VORRUNDE' ? 8 : (gameState.phaseType === 'ZWISCHENRUNDE' ? 5 : 1);
+
+            gameState.simTime += dt;
+            const elapsed = gameState.simTime;
+            const timerEl = document.getElementById('match-timer');
+            if (timerEl) timerEl.textContent = formatMatchClock(elapsed);
+
+            if (gameState.stageCompleted || gameState.transitioning) return;
+
+            // Jede Gruppe (Vorrunde, Zwischenrunde und Weltfinale) kämpft bis genau 1 Kreisel übrig bleibt
+            if (alivePlayers.length === 1) {
+                gameState.stageCompleted = true;
+                handleStageCompletion(alivePlayers[0]);
+                return;
+            }
+
+            // Duell-Anzeige sobald nur noch 2 Kreisel im Ring stehen
+            const duelBannerEl = document.getElementById('duel-banner');
+            if (duelBannerEl) {
+                if (alivePlayers.length === 2) {
+                    duelBannerEl.textContent = gameState.phaseType === 'FINALE'
+                        ? '⚔️ FINALES DUELL UM DEN WM-TITEL'
+                        : '⚔️ DUELL UM DEN GRUPPENSIEG';
+                    duelBannerEl.classList.remove('opacity-0');
+                } else {
+                    duelBannerEl.classList.add('opacity-0');
+                }
+            }
+
+            const centerX = gameState.canvasW / 2;
+            const centerY = gameState.canvasH / 2;
+            const effectiveRadius = getEffectiveRadius(elapsed);
+            const safeRadius = Math.max(24, effectiveRadius - 12);
+            const currentTime = gameState.simTime;
+            // Allmähliche Intensitätssteigerung im Kampfverlauf; im 1v1-Endkampf aktiver Fokus auf den Gegner
+            const lateBoost = Math.max(0, (elapsed - 24) / 40);
+            const intensityRamp = 1 + Math.min(0.75, lateBoost);
+            const isFinalDuel = alivePlayers.length === 2;
+
+            gameState.players.forEach(p => {
+                if (!p.alive) return;
+                p.rotation += p.spinSpeed * dt;
+
+                const dxCenter = p.x - centerX;
+                const dyCenter = p.y - centerY;
+                const distFromCenter = Math.hypot(dxCenter, dyCenter);
+
+                p.tacticClock -= dt;
+                if (p.tacticClock <= 0) {
+                    p.tactic = Math.floor(Math.random() * 4);
+                    p.tacticClock = isFinalDuel ? (0.9 + Math.random() * 1.1) : (1.3 + Math.random() * 1.8);
+                    p.orbitSign = Math.random() < 0.5 ? -1 : 1;
+                    p.roamAngle = Math.random() * Math.PI * 2;
+                }
+
+                let nearestEnemy = null;
+                let minDist = Infinity;
+                gameState.players.forEach(other => {
+                    if (other !== p && other.alive) {
+                        const d = Math.hypot(other.x - p.x, other.y - p.y);
+                        if (d < minDist) { minDist = d; nearestEnemy = other; }
+                    }
+                });
+
+                const toCenterX = distFromCenter > 0.01 ? -dxCenter / distFromCenter : Math.cos(p.roamAngle);
+                const toCenterY = distFromCenter > 0.01 ? -dyCenter / distFromCenter : Math.sin(p.roamAngle);
+                const tangentX = -toCenterY * p.orbitSign;
+                const tangentY = toCenterX * p.orbitSign;
+
+                let steerX = 0, steerY = 0;
+                if (nearestEnemy) {
+                    const ex = (nearestEnemy.x - p.x) / Math.max(1, minDist);
+                    const ey = (nearestEnemy.y - p.y) / Math.max(1, minDist);
+                    if (isFinalDuel) {
+                        // Im 1v1-Endkampf dynamische Angriffs- und Ausweichwinkel für ein echtes Duell
+                        const duelAngle = (p.tactic % 2 === 0) ? 0.35 * p.orbitSign : -0.25 * p.orbitSign;
+                        const cosA = Math.cos(duelAngle);
+                        const sinA = Math.sin(duelAngle);
+                        steerX = ex * cosA - ey * sinA;
+                        steerY = ex * sinA + ey * cosA;
+                    } else if (p.tactic === 0) {
+                        steerX = ex * 0.85 + tangentX * 0.35;
+                        steerY = ey * 0.85 + tangentY * 0.35;
+                    } else if (p.tactic === 1) {
+                        steerX = tangentX * 0.8 + ex * 0.45;
+                        steerY = tangentY * 0.8 + ey * 0.45;
+                    } else if (p.tactic === 2) {
+                        steerX = Math.cos(p.roamAngle) * 0.65 + ex * 0.45;
+                        steerY = Math.sin(p.roamAngle) * 0.65 + ey * 0.45;
+                    } else {
+                        steerX = ex * 0.55 - ey * p.orbitSign * 0.65;
+                        steerY = ey * 0.55 + ex * p.orbitSign * 0.65;
+                    }
+                } else {
+                    steerX = tangentX;
+                    steerY = tangentY;
+                }
+
+                // Dynamische Randführung: hält das Feld anfangs kompakt im Ring,
+                // wird mit zunehmender Kampfdauer durchlässiger für harte Treffer
+                const radialRatio = distFromCenter / Math.max(1, safeRadius);
+                const rimGrip = Math.max(0.65, 1.35 - lateBoost * 0.65);
+                if (radialRatio > 0.64) {
+                    const edgeWeight = Math.min(2.5, (radialRatio - 0.64) * 5.2 * rimGrip);
+                    steerX += toCenterX * edgeWeight;
+                    steerY += toCenterY * edgeWeight;
+                }
+
+                const steeringLength = Math.max(0.001, Math.hypot(steerX, steerY));
+                const accel = (isFinalDuel ? 115 : 102) * intensityRamp;
+                p.vx += (steerX / steeringLength) * accel * dt;
+                p.vy += (steerY / steeringLength) * accel * dt;
+
+                // Kontrollierte Mindest- und Höchstgeschwindigkeit für flüssige, übersichtliche Kämpfe
+                const speed = Math.hypot(p.vx, p.vy);
+                const minSpeed = isFinalDuel ? 54 : 46;
+                const currentMaxSpeed = p.maxSpeed * intensityRamp;
+                if (speed < minSpeed) {
+                    const boostAngle = speed > 1 ? Math.atan2(p.vy, p.vx) : p.roamAngle;
+                    p.vx = Math.cos(boostAngle) * minSpeed;
+                    p.vy = Math.sin(boostAngle) * minSpeed;
+                } else if (speed > currentMaxSpeed) {
+                    p.vx = (p.vx / speed) * currentMaxSpeed;
+                    p.vy = (p.vy / speed) * currentMaxSpeed;
+                }
+
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+
+                p.vx *= 0.985;
+                p.vy *= 0.985;
+            });
+
+            // Kollisionen: Dosierte Rückstöße für viele Duelle in den ersten 25s,
+            // steigende Schlagkraft im weiteren Kampfverlauf und im 1v1-Duell
+            const activeList = gameState.players.filter(p => p.alive);
+            for (let i = 0; i < activeList.length; i++) {
+                for (let j = i + 1; j < activeList.length; j++) {
+                    const p1 = activeList[i];
+                    const p2 = activeList[j];
+
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const dist = Math.hypot(dx, dy);
+                    const minDist = p1.radius + p2.radius;
+
+                    if (dist < minDist) {
+                        const nx = dist > 0.001 ? dx / dist : Math.cos(i + j);
+                        const ny = dist > 0.001 ? dy / dist : Math.sin(i + j);
+                        const overlap = minDist - dist;
+
+                        const separation = overlap * 0.51 + 0.15;
+                        p1.x -= nx * separation;
+                        p1.y -= ny * separation;
+                        p2.x += nx * separation;
+                        p2.y += ny * separation;
+
+                        const rvx = p2.vx - p1.vx;
+                        const rvy = p2.vy - p1.vy;
+                        const relativeNormal = rvx * nx + rvy * ny;
+
+                        if (relativeNormal < 0) {
+                            const duelBonus = isFinalDuel ? 0.12 : 0;
+                            const restitution = Math.min(1.24, 1.0 + lateBoost * 0.22 + duelBonus);
+                            const impulse = -(1 + restitution) * relativeNormal / (1 / p1.mass + 1 / p2.mass);
+                            const minKnockback = (isFinalDuel ? 34 : 22) * intensityRamp;
+                            const maxKnockback = Math.min(145, 96 + lateBoost * 45);
+                            const totalImpulse = Math.min(maxKnockback, Math.max(impulse, minKnockback));
+
+                            p1.vx -= totalImpulse * nx / p1.mass;
+                            p1.vy -= totalImpulse * ny / p1.mass;
+                            p2.vx += totalImpulse * nx / p2.mass;
+                            p2.vy += totalImpulse * ny / p2.mass;
+
+                            const speed1 = Math.hypot(p1.vx, p1.vy);
+                            const speed2 = Math.hypot(p2.vx, p2.vy);
+
+                            p2.lastAttacker = p1.name;
+                            p2.lastHitTime = currentTime;
+                            p1.lastAttacker = p2.name;
+                            p1.lastHitTime = currentTime;
+
+                            if (speed1 >= speed2) {
+                                p1.hitsLanded++;
+                                p2.hitsTaken++;
+                            } else {
+                                p2.hitsLanded++;
+                                p1.hitsTaken++;
+                            }
+
+                            const impactSpeed = -relativeNormal;
+                            if (impactSpeed > 28) {
+                                SoundEngine.playClash(impactSpeed);
+                            }
+
+                            if (relativeNormal < -14 && Math.random() < 0.25) {
+                                createSparks((p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Ring-Out-Prüfung: Ausscheiden ausschließlich nach gegnerischem Treffer + Verlassen der Arena,
+            // bis genau 1 letzter Überlebender übrig bleibt
+            gameState.players.forEach(p => {
+                if (!p.alive) return;
+                const currentAliveCount = gameState.players.filter(q => q.alive).length;
+                if (currentAliveCount <= 1) return;
+
+                const distFromCenter = Math.hypot(p.x - centerX, p.y - centerY);
+                if (distFromCenter > effectiveRadius + p.radius * 0.28) {
+                    const hasValidEnemyHit = p.lastAttacker && (currentTime - p.lastHitTime <= 4.5);
+                    if (hasValidEnemyHit) {
+                        p.alive = false;
+                        p.eliminatedAt = currentTime;
+                        gameState.eliminationOrder.push(p);
+                        createRingOutSparks(p.x, p.y);
+                        SoundEngine.playRingOut();
+                        announceRingOut(p);
+                        updateRankingUI();
+                    } else {
+                        const outwardX = (p.x - centerX) / Math.max(0.001, distFromCenter);
+                        const outwardY = (p.y - centerY) / Math.max(0.001, distFromCenter);
+                        const limit = Math.max(p.radius + 1, effectiveRadius - p.radius - 2);
+                        p.x = centerX + outwardX * limit;
+                        p.y = centerY + outwardY * limit;
+                        const outwardSpeed = p.vx * outwardX + p.vy * outwardY;
+                        if (outwardSpeed > 0) {
+                            p.vx -= 1.25 * outwardSpeed * outwardX;
+                            p.vy -= 1.25 * outwardSpeed * outwardY;
+                        }
+                    }
+                }
+            });
+
+            // In-place Bereinigung der Partikel ohne ständige Array-Neuzuweisung
+            let writeIdx = 0;
+            for (let i = 0; i < gameState.sparks.length; i++) {
+                const s = gameState.sparks[i];
+                s.x += s.vx * dt;
+                s.y += s.vy * dt;
+                s.life -= dt;
+                if (s.life > 0) {
+                    gameState.sparks[writeIdx++] = s;
+                }
+            }
+            gameState.sparks.length = writeIdx;
+
+            const remainingAfterUpdate = gameState.players.filter(p => p.alive);
+            const advancingLabel = advanceCount === 1 ? '1 SIEGER' : `TOP ${advanceCount} WEITER`;
+            document.getElementById('survivors-count').innerText = `${remainingAfterUpdate.length} NOCH IM RING`;
+            document.getElementById('player-count-badge').innerText = `${remainingAfterUpdate.length} IM RING · ${advancingLabel}`;
+
+            // DOM-Liste gedrosselt aktualisieren für optimale Android-Chrome-Performance
+            if (currentTime - gameState.lastUiRenderAt >= 0.4) {
+                updateRankingUI();
+                gameState.lastUiRenderAt = currentTime;
+            }
+
+            // Rundenwechsel ausschließlich wenn genau 1 Kreisel übrig geblieben ist
+            if (!gameState.stageCompleted && remainingAfterUpdate.length === 1) {
+                gameState.stageCompleted = true;
+                handleStageCompletion(remainingAfterUpdate[0]);
+            }
+        }
+
+        function handleStageCompletion(groupWinner) {
+            if (!groupWinner) return;
+            gameState.transitioning = true;
+            document.getElementById('duel-banner').classList.add('opacity-0');
+            updateRankingUI();
+            SoundEngine.playVictoryFanfare(gameState.phaseType === 'FINALE');
+
+            const rankedStandings = buildRankedStandings(groupWinner);
+            const matchDurationText = formatMatchClock(gameState.simTime);
+
+            if (gameState.phaseType === 'VORRUNDE') {
+                const top8 = rankedStandings.slice(0, 8);
+                gameState.qualifiedVorrunde.push(...top8.map(p => p.nation));
+                const stageLabel = `VORRUNDE · GRUPPE ${gameState.groupIndex + 1}/10`;
+                showGroupWinnerAndQualifiers(groupWinner, top8, stageLabel, matchDurationText, () => {
+                    gameState.groupIndex++;
+                    if (gameState.groupIndex < 10) {
+                        startTournamentStage();
+                    } else {
+                        gameState.phaseType = 'ZWISCHENRUNDE';
+                        gameState.groupIndex = 0;
+                        gameState.qualifiedVorrunde.sort(() => Math.random() - 0.5);
+                        startTournamentStage();
+                    }
+                });
+            } else if (gameState.phaseType === 'ZWISCHENRUNDE') {
+                const top5 = rankedStandings.slice(0, 5);
+                gameState.qualifiedZwischenrunde.push(...top5.map(p => p.nation));
+                const stageLabel = `ZWISCHENRUNDE · GRUPPE ${gameState.groupIndex + 1}/4`;
+                showGroupWinnerAndQualifiers(groupWinner, top5, stageLabel, matchDurationText, () => {
+                    gameState.groupIndex++;
+                    if (gameState.groupIndex < 4) {
+                        startTournamentStage();
+                    } else {
+                        gameState.phaseType = 'FINALE';
+                        gameState.groupIndex = 0;
+                        startTournamentStage();
+                    }
+                });
+            } else if (gameState.phaseType === 'FINALE') {
+                gameState.winner = groupWinner;
+                triggerWorldChampionPodium(gameState.winner);
+            }
+        }
+
+        function flagEmoji(code) {
+            const map = {EN:'GB', SCT:'GB', WAL:'GB', BIH:'BA', MNE:'ME', RKS:'XK', SSD:'SS', PRK:'KP', MHL:'MH', FSM:'FM'};
+            const iso = map[code] || code;
+            if (!/^[A-Z]{2}$/.test(iso)) return '🏳️';
+            return [...iso].map(c => String.fromCodePoint(c.charCodeAt(0) + 127397)).join('');
+        }
+
+        function showGroupWinnerAndQualifiers(groupWinner, qualifiers, stageLabel, durationText, callback) {
+            clearActiveCountdown();
+
+            const overlay = document.getElementById('intermission-overlay');
+            const winnerStage = document.getElementById('group-winner-stage');
+            const qualifiersStage = document.getElementById('group-qualifiers-stage');
+
+            // Stufe 1: Gruppensieger 4 Sekunden prominent präsentieren
+            document.getElementById('group-winner-kicker').innerText = stageLabel;
+            document.getElementById('group-winner-flag').innerText = flagEmoji(groupWinner.code);
+            document.getElementById('group-winner-headline').innerText = `GRUPPENSIEGER: ${groupWinner.name.toUpperCase()}`;
+            document.getElementById('group-winner-sub').innerText = `Letzter Überlebender nach ${durationText}`;
+
+            winnerStage.classList.remove('hidden');
+            winnerStage.classList.add('flex');
+            qualifiersStage.classList.add('hidden');
+            qualifiersStage.classList.remove('flex');
+
+            // Stufe 2 vorbereiten: Qualifizierte Länder mit Platzierung (1..8 bzw. 1..5)
+            document.getElementById('intermission-title').innerText = `${stageLabel} · TOP ${qualifiers.length}`;
+            document.getElementById('intermission-subtitle').innerText = `Platz 1 bis ${qualifiers.length} qualifizieren sich für die nächste Runde:`;
+            const listEl = document.getElementById('qualified-list');
+            listEl.innerHTML = '';
+            qualifiers.forEach((s, idx) => {
+                const rank = idx + 1;
+                const badge = document.createElement('div');
+                const isFirst = rank === 1;
+                badge.className = isFirst
+                    ? "bg-amber-500/20 border border-amber-400/70 px-2 py-1.5 rounded-lg flex items-center gap-1.5 text-amber-200 min-w-0"
+                    : "bg-slate-900 border border-slate-800 px-2 py-1.5 rounded-lg flex items-center gap-1.5 text-white min-w-0";
+                badge.innerHTML = `<span class="text-[11px] font-black ${isFirst ? 'text-amber-300' : 'text-slate-400'} shrink-0">#${rank}</span> <span class="text-sm shrink-0">${flagEmoji(s.code)}</span> <span class="truncate font-bold">${s.name}</span>`;
+                listEl.appendChild(badge);
+            });
+
+            overlay.classList.remove('opacity-0', 'pointer-events-none');
+
+            const nextNumber = gameState.groupIndex + 2;
+            const nextLabel = gameState.phaseType === 'VORRUNDE'
+                ? (nextNumber <= 10 ? `ALS NÄCHSTES: VORRUNDE GRUPPE ${nextNumber}/10` : 'ALS NÄCHSTES: ZWISCHENRUNDE (4 GRUPPEN)')
+                : gameState.phaseType === 'ZWISCHENRUNDE'
+                ? (nextNumber <= 4 ? `ALS NÄCHSTES: ZWISCHENGRUPPE ${nextNumber}/4` : 'ALS NÄCHSTES: WELTFINALE (20 → 1)')
+                : 'WELTFINALE';
+            document.getElementById('group-counter').textContent = nextLabel;
+
+            let winnerSeconds = 4;
+            const winnerCdEl = document.getElementById('group-winner-countdown');
+            winnerCdEl.innerText = `Qualifikanten in ${winnerSeconds}s...`;
+
+            gameState.activeCountdownInterval = setInterval(() => {
+                if (gameState.runMode !== 'running') return;
+                winnerSeconds--;
+                if (winnerSeconds > 0) {
+                    winnerCdEl.innerText = `Qualifikanten in ${winnerSeconds}s...`;
+                } else {
+                    clearActiveCountdown();
+                    // Wechsel zur 6-sekündigen Qualifikanten-Übersicht
+                    winnerStage.classList.add('hidden');
+                    winnerStage.classList.remove('flex');
+                    qualifiersStage.classList.remove('hidden');
+                    qualifiersStage.classList.add('flex');
+
+                    gameState.intermissionTimer = 6;
+                    const cdEl = document.getElementById('intermission-countdown');
+                    cdEl.innerText = `Nächste Gruppe in ${gameState.intermissionTimer}s...`;
+
+                    gameState.activeCountdownInterval = setInterval(() => {
+                        if (gameState.runMode !== 'running') return;
+                        gameState.intermissionTimer--;
+                        if (gameState.intermissionTimer > 0) {
+                            cdEl.innerText = `Nächste Gruppe in ${gameState.intermissionTimer}s...`;
+                        } else {
+                            clearActiveCountdown();
+                            callback();
+                        }
+                    }, 1000);
+                }
+            }, 1000);
+        }
+
+        function updateRankingUI() {
+            const listEl = document.getElementById('ranking-list');
+            const frag = document.createDocumentFragment();
+            
+            gameState.players.slice().sort((a, b) => (b.alive ? 1 : 0) - (a.alive ? 1 : 0)).forEach(p => {
+                const item = document.createElement('div');
+                item.className = `px-2 py-1 rounded border flex items-center gap-1 whitespace-nowrap shrink-0 ${p.alive ? 'bg-slate-950/90 border-slate-700 text-slate-100' : 'bg-slate-900/30 border-slate-900 text-slate-600 line-through'}`;
+                item.innerHTML = `<span class="text-slate-400 font-bold">${p.code}</span> <span class="font-semibold">${p.name}</span>`;
+                frag.appendChild(item);
+            });
+
+            listEl.innerHTML = '';
+            listEl.appendChild(frag);
+        }
+
+        function triggerWorldChampionPodium(winner) {
+            clearActiveCountdown();
+            const seasonNumber = gameState.championsArchive.length + 1;
+            gameState.championsArchive.unshift({
+                season: seasonNumber,
+                name: winner.name,
+                code: winner.code,
+                duration: formatMatchClock(gameState.simTime)
+            });
+            saveChampionArchive(gameState.championsArchive);
+            updateArchiveUI();
+
+            document.getElementById('podium-subtitle').innerText = `WELTMEISTER WM #${seasonNumber} GEKÜRT`;
+            document.getElementById('winner-title').innerText = winner.name.toUpperCase();
+            document.getElementById('winner-flag-big').innerText = flagEmoji(winner.code);
+            document.getElementById('winner-desc').innerText = `Sieger im Weltfinale nach ${formatMatchClock(gameState.simTime)}!`;
+            document.getElementById('podium-overlay').classList.remove('opacity-0', 'pointer-events-none');
+
+            gameState.podiumTimer = 9;
+            const cdEl = document.getElementById('next-round-countdown');
+            cdEl.innerText = `Nächste Weltmeisterschaft in ${gameState.podiumTimer}s...`;
+
+            gameState.activeCountdownInterval = setInterval(() => {
+                if (gameState.runMode !== 'running') return;
+                gameState.podiumTimer--;
+                if (gameState.podiumTimer > 0) {
+                    cdEl.innerText = `Nächste Weltmeisterschaft in ${gameState.podiumTimer}s...`;
+                } else {
+                    clearActiveCountdown();
+                    gameState.phaseType = 'VORRUNDE';
+                    gameState.groupIndex = 0;
+                    gameState.qualifiedVorrunde = [];
+                    gameState.qualifiedZwischenrunde = [];
+                    ALL_NATIONS.sort(() => Math.random() - 0.5);
+                    startTournamentStage();
+                }
+            }, 1000);
+        }
+
+        function drawFlagTexture(nation, radius) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(0, 0, radius - 1, 0, Math.PI * 2);
+            ctx.clip();
+
+            const colors = nation.colors;
+            const layout = nation.layout;
+
+            if (layout === 'horizontal') {
+                const h = (radius * 2) / 3;
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, h);
+                ctx.fillStyle = colors[1]; ctx.fillRect(-radius, -radius + h, radius * 2, h);
+                ctx.fillStyle = colors[2]; ctx.fillRect(-radius, -radius + h * 2, radius * 2, h);
+            } else if (layout === 'vertical') {
+                const w = (radius * 2) / 3;
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, w, radius * 2);
+                ctx.fillStyle = colors[1]; ctx.fillRect(-radius + w, -radius, w, radius * 2);
+                ctx.fillStyle = colors[2]; ctx.fillRect(-radius + w * 2, -radius, w, radius * 2);
+            } else if (layout === 'horizontal-half') {
+                const h = radius;
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, h);
+                ctx.fillStyle = colors[1]; ctx.fillRect(-radius, 0, radius * 2, h);
+            } else if (layout === 'cross') {
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+                ctx.fillStyle = colors[1];
+                ctx.fillRect(-radius, -radius * 0.35, radius * 2, radius * 0.7);
+                ctx.fillRect(-radius * 0.35, -radius, radius * 0.7, radius * 2);
+            } else if (layout === 'brazil') {
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+                ctx.fillStyle = colors[1];
+                ctx.beginPath();
+                ctx.moveTo(0, -radius * 0.65); ctx.lineTo(radius * 0.75, 0); ctx.lineTo(0, radius * 0.65); ctx.lineTo(-radius * 0.75, 0);
+                ctx.fill();
+                ctx.fillStyle = colors[2]; ctx.beginPath(); ctx.arc(0, 0, radius * 0.32, 0, Math.PI * 2); ctx.fill();
+            } else if (layout === 'usa') {
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+                ctx.fillStyle = colors[1];
+                for(let i = -radius; i < radius; i += 5) {
+                    ctx.fillRect(-radius, i, radius * 2, 2);
+                }
+                ctx.fillStyle = colors[2]; ctx.fillRect(-radius, -radius, radius * 0.95, radius * 0.95);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `${radius * 0.5}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('★', -radius * 0.45, -radius * 0.45);
+            } else if (layout === 'japan' || layout === 'swiss') {
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+                ctx.fillStyle = colors[1];
+                if (layout === 'swiss') {
+                    ctx.fillRect(-radius * 0.6, -radius * 0.2, radius * 1.2, radius * 0.4);
+                    ctx.fillRect(-radius * 0.2, -radius * 0.6, radius * 0.4, radius * 1.2);
+                } else {
+                    ctx.beginPath(); ctx.arc(0, 0, radius * 0.45, 0, Math.PI * 2); ctx.fill();
+                }
+            } else if (layout === 'spanish') {
+                const h = (radius * 2) / 4;
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, h);
+                ctx.fillStyle = colors[1]; ctx.fillRect(-radius, -radius + h, radius * 2, h * 2);
+                ctx.fillStyle = colors[2]; ctx.fillRect(-radius, -radius + h * 3, radius * 2, h);
+            } else if (layout === 'argentina') {
+                const h = (radius * 2) / 3;
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, h);
+                ctx.fillStyle = colors[1]; ctx.fillRect(-radius, -radius + h, radius * 2, h);
+                ctx.fillStyle = colors[2]; ctx.fillRect(-radius, -radius + h * 2, radius * 2, h);
+                ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(0, 0, radius * 0.28, 0, Math.PI * 2); ctx.fill();
+            } else if (layout === 'portugal') {
+                const w = radius * 0.75;
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, w, radius * 2);
+                ctx.fillStyle = colors[1]; ctx.fillRect(-radius + w, -radius, radius * 2 - w, radius * 2);
+                ctx.fillStyle = colors[2]; ctx.beginPath(); ctx.arc(-radius * 0.38, 0, radius * 0.32, 0, Math.PI * 2); ctx.fill();
+            } else if (layout === 'turkey') {
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+                ctx.fillStyle = colors[1]; ctx.beginPath(); ctx.arc(-1, 0, radius * 0.42, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = colors[0]; ctx.beginPath(); ctx.arc(3, 0, radius * 0.32, 0, Math.PI * 2); ctx.fill();
+            } else if (layout === 'canada') {
+                ctx.fillStyle = colors[1]; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 0.65, radius * 2);
+                ctx.fillRect(radius * 0.35, -radius, radius * 0.65, radius * 2);
+                ctx.fillStyle = colors[0];
+                ctx.font = `${radius * 0.6}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🍁', 0, 0);
+            } else if (layout === 'korea') {
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+                ctx.fillStyle = colors[2]; ctx.beginPath(); ctx.arc(0, -radius * 0.22, radius * 0.32, 0, Math.PI); ctx.fill();
+                ctx.fillStyle = colors[1]; ctx.beginPath(); ctx.arc(0, radius * 0.22, radius * 0.32, Math.PI, Math.PI * 2); ctx.fill();
+            } else if (layout === 'australia') {
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+                ctx.fillStyle = colors[1]; ctx.fillRect(-radius, -radius, radius * 0.75, radius * 0.75);
+                ctx.fillStyle = colors[1]; ctx.font = `${radius * 0.45}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('★', radius * 0.4, radius * 0.4);
+            } else if (layout === 'morocco') {
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+                ctx.fillStyle = colors[1];
+                ctx.font = `${radius * 0.7}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('★', 0, 0);
+            } else {
+                ctx.fillStyle = colors[0]; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+            }
+
+            ctx.restore();
+        }
+
+        function drawScene() {
+            const viewW = gameState.canvasW || canvas.clientWidth || canvas.parentElement.clientWidth;
+            const viewH = gameState.canvasH || canvas.clientHeight || canvas.parentElement.clientHeight;
+            ctx.clearRect(0, 0, viewW, viewH);
+
+            const centerX = viewW / 2;
+            const centerY = viewH / 2;
+            const currentArenaRadius = getEffectiveRadius(gameState.simTime);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, currentArenaRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#090d16';
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#3b82f6';
+            ctx.stroke();
+            ctx.restore();
+
+            for (let i = 0; i < gameState.sparks.length; i++) {
+                const s = gameState.sparks[i];
+                ctx.save();
+                ctx.globalAlpha = s.life / s.maxLife;
+                ctx.fillStyle = s.color;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Kreisel zeichnen
+            gameState.players.forEach(p => {
+                if (!p.alive) return;
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.beginPath();
+                ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#1e293b';
+                ctx.fill();
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = '#94a3b8';
+                ctx.stroke();
+
+                // Sichtbare Eigenrotation des Außenrings, während die Flagge stabil bleibt
+                ctx.save();
+                ctx.rotate(p.rotation);
+                ctx.lineWidth = 3.2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.arc(0, 0, p.radius * 0.84, -0.15, 1.75);
+                ctx.strokeStyle = '#38bdf8';
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(0, 0, p.radius * 0.84, 2.25, 2.95);
+                ctx.strokeStyle = '#fbbf24';
+                ctx.stroke();
+                ctx.restore();
+
+                ctx.beginPath();
+                ctx.arc(0, 0, p.radius * 0.70, 0, Math.PI * 2);
+                ctx.fillStyle = '#0f172a';
+                ctx.fill();
+                drawFlagTexture(p.nation, p.radius * 0.68);
+                ctx.restore();
+            });
+
+            // Ländernamen sauber über allen Kreiseln mit Hintergrund-Pill & Rand-Clamping rendern (keine abgeschnittenen Namen)
+            ctx.save();
+            ctx.font = '700 9.5px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            gameState.players.forEach(p => {
+                if (!p.alive) return;
+                const textWidth = ctx.measureText(p.name).width;
+                const pillW = textWidth + 8;
+                const pillH = 13;
+                const labelX = Math.max(pillW / 2 + 4, Math.min(viewW - pillW / 2 - 4, p.x));
+                const labelY = Math.max(pillH / 2 + 4, Math.min(viewH - pillH / 2 - 4, p.y + p.radius + 10));
+
+                ctx.fillStyle = 'rgba(2, 6, 23, 0.82)';
+                ctx.beginPath();
+                ctx.roundRect(labelX - pillW / 2, labelY - pillH / 2, pillW, pillH, 4);
+                ctx.fill();
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillText(p.name, labelX, labelY + 0.5);
+            });
+            ctx.restore();
+        }
+
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
