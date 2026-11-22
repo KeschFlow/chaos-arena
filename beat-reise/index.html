@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BEAT REISE · TikTok LIVE</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            --accent: #e879f9;
+            --accent-sec: #22d3ee;
+            --bg-outer: #05040a;
+            --bg-stage: #090712;
+            --panel-bg: rgba(15, 11, 28, 0.86);
+            --border-subtle: rgba(255, 255, 255, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0 auto;
+            width: min(100vw, 56.25dvh);
+            height: 100dvh;
+            background: var(--bg-stage);
+            color: #ffffff;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.95);
+        }
+
+        html {
+            background: var(--bg-outer);
+        }
+
+        /* Minimaler, schwebender Top-Header über der Bühne */
+        header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 20;
+            padding: clamp(12px, 2.2dvh, 24px) clamp(14px, 3vw, 28px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            pointer-events: none;
+            background: linear-gradient(to bottom, rgba(5, 4, 12, 0.82) 0%, rgba(5, 4, 12, 0) 100%);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .live-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(225, 29, 72, 0.22);
+            border: 1px solid rgba(244, 63, 94, 0.65);
+            color: #fda4af;
+            font-size: clamp(11px, 1.5dvh, 16px);
+            font-weight: 800;
+            letter-spacing: 0.08em;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f43f5e;
+            box-shadow: 0 0 10px #f43f5e;
+            animation: pulseDot 1.4s infinite ease-in-out;
+        }
+
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.45; transform: scale(0.8); }
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(16px, 2.4dvh, 28px);
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .ws-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #52525b;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        .ws-indicator.connected {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        #bpmBadge {
+            padding: 5px 10px;
+            border-radius: 8px;
+            background: rgba(15, 12, 29, 0.78);
+            border: 1px solid var(--border-subtle);
+            color: var(--accent-sec);
+            font-size: clamp(12px, 1.6dvh, 18px);
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            backdrop-filter: blur(8px);
+        }
+
+        #playBtn {
+            padding: 7px 14px;
+            min-height: clamp(36px, 4.4dvh, 52px);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(28, 20, 48, 0.88);
+            color: #ffffff;
+            font-size: clamp(12px, 1.6dvh, 18px);
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: transform 0.1s, background 0.2s, border-color 0.2s;
+        }
+
+        #playBtn.active {
+            background: rgba(232, 121, 249, 0.22);
+            border-color: var(--accent);
+            color: #f5d0fe;
+        }
+
+        /* Maximale Bühne über den gesamten Screen */
+        #stage {
+            grid-row: 1 / 4;
+            grid-column: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #07050e;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Kompaktes, hochkontrastiges DJ-Dock am unteren Rand */
+        .dock {
+            grid-row: 3;
+            grid-column: 1;
+            z-index: 20;
+            padding: clamp(10px, 1.8dvh, 22px) clamp(12px, 2.8vw, 24px) clamp(14px, 2.4dvh, 28px);
+            background: linear-gradient(to top, rgba(5, 4, 12, 0.96) 55%, rgba(5, 4, 12, 0.72) 85%, rgba(5, 4, 12, 0) 100%);
+            display: flex;
+            flex-direction: column;
+            gap: clamp(8px, 1.2dvh, 14px);
+        }
+
+        .genres {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: clamp(6px, 1.4vw, 12px);
+        }
+
+        .effects {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: clamp(6px, 1.4vw, 12px);
+        }
+
+        .dock button {
+            min-height: clamp(46px, 5.6dvh, 68px);
+            padding: 6px 4px;
+            border-radius: 12px;
+            border: 1px solid var(--border-subtle);
+            background: var(--panel-bg);
+            color: #f4f4f5;
+            font-family: inherit;
+            font-size: clamp(12px, 1.75dvh, 20px);
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: transform 0.08s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .dock button:active {
+            transform: scale(0.95);
+        }
+
+        .genres button[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: #ffffff;
+            color: #090514;
+            box-shadow: 0 0 20px rgba(232, 121, 249, 0.45);
+        }
+
+        .effects button:nth-child(1) {
+            border-color: rgba(34, 211, 238, 0.4);
+            color: #a5f3fc;
+        }
+
+        .effects button:nth-child(2) {
+            border-color: rgba(250, 204, 21, 0.4);
+            color: #fef08a;
+        }
+
+        .effects button:active {
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        #gift-test:not([hidden]) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+        .vote-board { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:2px 8px;
+            color:#eee8fe; font-size:clamp(10px,1.35dvh,17px); }
+        #vote-status { font-weight:800; color:var(--accent); }
+        .genres button { position:relative; flex-direction:column; gap:1px; overflow:hidden; }
+        .gift-icon { display:grid; place-items:center; font:normal clamp(15px,2.5dvh,29px)/1 "Segoe UI Emoji",sans-serif; }
+        .gift-icon svg { display:block; width:1em; height:1em; }
+        .genres button span { position:relative; z-index:1; }
+        .chapter { position:absolute; top:22%; left:7%; right:7%; pointer-events:none;
+            text-shadow:0 3px 18px #090610; }
+        #chapter-number { display:block; color:#e4deff; font-size:clamp(11px,2dvh,22px); letter-spacing:.15em; }
+        #chapter-title { display:block; font-size:clamp(27px,6dvh,84px); line-height:.98; max-width:100%; }
+        #vote-status { font-size:clamp(13px,2.3dvh,30px); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">
+            <span class="live-pill"><span class="live-dot"></span>LIVE</span>
+            <h1>BEAT REISE</h1>
+        </div>
+        <div class="header-controls">
+            <span id="wsDot" class="ws-indicator" title="TikFinity WebSocket Status"></span>
+            <span id="bpmBadge">142 BPM</span>
+            <button id="playBtn" type="button" onclick="togglePlay()">▶ PLAY</button>
+        </div>
+    </header>
+
+    <section id="stage" aria-label="Animierte Reise durch eine Neonstadt">
+        <canvas id="djCanvas"></canvas>
+        <div class="chapter">
+            <span id="chapter-number"></span>
+            <strong id="chapter-title">Nachtfahrt</strong>
+        </div>
+    </section>
+
+    <div class="dock">
+        <div class="vote-board">
+            <span id="vote-guide">Geschenk wählen · Route und Sound wechseln</span>
+            <span id="vote-status" role="status">TikFinity getrennt</span>
+        </div>
+        <div class="genres" role="group" aria-label="Musikrichtung">
+            <button id="genre0" type="button" aria-pressed="true" onclick="pressGenre(0)" aria-label="TECHNO – Rose"><span>TECHNO</span><span class="gift-icon" aria-hidden="true">🌹</span></button>
+            <button id="genre1" type="button" aria-pressed="false" onclick="pressGenre(1)" aria-label="TRAP – Fingerherz"><span>TRAP</span><span class="gift-icon" aria-hidden="true">🫰</span></button>
+            <button id="genre2" type="button" aria-pressed="false" onclick="pressGenre(2)" aria-label="HOUSE – Donut"><span>HOUSE</span><span class="gift-icon" aria-hidden="true">🍩</span></button>
+            <button id="genre3" type="button" aria-pressed="false" onclick="pressGenre(3)" aria-label="CHILL – Parfüm"><span>CHILL</span><span class="gift-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><rect x="8.5" y="2.5" width="7" height="4.5" rx="1" fill="#e5b7ff"/><path d="M9 7h6v2H9z" fill="#b78ad1"/><rect x="4.5" y="9" width="15" height="12.5" rx="4" fill="#b566e3" stroke="#edcdff"/><rect x="8" y="13" width="8" height="5" rx="1" fill="#f4ddff"/></svg></span></button>
+        </div>
+        <div id="gift-test" hidden>
+            <button type="button" onclick="testGift(1)">Testgeschenk · 15 s</button>
+            <button type="button" onclick="testGift(30)">Testgeschenk · 44 s</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('djCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 4 eigenständige Club-Genres mit individuellem Tempo, Rhythmus, Bassline, Lead & Lichtstimmung
+        const GENRES = [
+            {
+                name: 'TECHNO',
+                bpm: 142,
+                color: '#e879f9',      // Neon Magenta
+                secondary: '#22d3ee',  // Cyan Laser
+                ambient: '#1e0b36',
+                kicks:  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                hats:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1],
+                bass:   [41.2, 41.2, 55.0, 41.2, 41.2, 41.2, 61.7, 41.2, 41.2, 41.2, 55.0, 41.2, 49.0, 49.0, 65.4, 55.0],
+                lead:   [164.8, 0, 164.8, 196.0, 0, 164.8, 220.0, 0, 164.8, 0, 196.0, 246.9, 220.0, 0, 196.0, 0],
+                wave: 'sawtooth',
+                bassDecay: 0.22
+            },
+            {
+                name: 'TRAP',
+                bpm: 146,
+                color: '#facc15',      // Gold / Amber
+                secondary: '#ef4444',  // Crimson
+                ambient: '#291507',
+                kicks:  [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                hats:   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                bass:   [36.7, 0, 0, 36.7, 0, 0, 43.6, 0, 41.2, 0, 0, 41.2, 0, 0, 32.7, 0],
+                lead:   [293.6, 0, 329.6, 349.2, 0, 329.6, 293.6, 0, 261.6, 0, 293.6, 329.6, 0, 261.6, 220.0, 0],
+                wave: 'square',
+                bassDecay: 0.38
+            },
+            {
+                name: 'HOUSE',
+                bpm: 126,
+                color: '#10b981',      // Emerald Club Green
+                secondary: '#fbbf24',  // Warm Gold
+                ambient: '#06261e',
+                kicks:  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0],
+                hats:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+                bass:   [55.0, 0, 55.0, 65.4, 0, 55.0, 73.4, 0, 55.0, 0, 55.0, 82.4, 0, 73.4, 65.4, 0],
+                lead:   [220.0, 0, 261.6, 0, 329.6, 0, 293.6, 261.6, 220.0, 0, 392.0, 0, 329.6, 0, 293.6, 0],
+                wave: 'triangle',
+                bassDecay: 0.25
+            },
+            {
+                name: 'CHILL',
+                bpm: 90,
+                color: '#38bdf8',      // Sky Blue
+                secondary: '#f472b6',  // Soft Pink
+                ambient: '#0a1c30',
+                kicks:  [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
+                hats:   [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1],
+                bass:   [43.6, 43.6, 0, 43.6, 0, 43.6, 51.9, 0, 43.6, 43.6, 0, 49.0, 0, 43.6, 38.9, 0],
+                lead:   [349.2, 0, 415.3, 0, 349.2, 0, 523.2, 0, 466.1, 0, 415.3, 0, 349.2, 0, 311.1, 0],
+                wave: 'sine',
+                bassDecay: 0.34
+            }
+        ];
+
+        const state = {
+            playing: false,
+            genreIdx: 0,
+            step: 0,
+            bassPulse: 0,
+            snarePulse: 0,
+            discAngleL: 0,
+            discAngleR: 0,
+            activeDeck: 0, // 0 = links, 1 = rechts (wechselt periodisch)
+            handActionPhase: 0,
+            effectTimer: 0,
+            effectType: '',
+            confetti: [],
+            smoke: []
+        };
+
+        let audioCtx = null;
+        let masterComp = null;
+        let noiseBuffer = null;
+        let stepTimer = null;
+
+        function ensureAudio() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    audioCtx = new AudioContextClass();
+                    masterComp = audioCtx.createDynamicsCompressor();
+                    masterComp.threshold.value = -12;
+                    masterComp.knee.value = 16;
+                    masterComp.ratio.value = 6;
+                    masterComp.attack.value = 0.004;
+                    masterComp.release.value = 0.14;
+                    masterComp.connect(audioCtx.destination);
+
+                    const bufSize = audioCtx.sampleRate * 0.5;
+                    noiseBuffer = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+                    const data = noiseBuffer.getChannelData(0);
+                    for (let i = 0; i < bufSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                return audioCtx.resume().catch(() => {});
+            }
+        }
+
+        const chapters = ['Nachtfahrt', 'Neonviertel', 'Über den Dächern', 'Morgengrauen'];
+        const routes = ['Neontunnel', 'Betonviertel', 'Lichterbrücke', 'Sternenhafen'];
+        const progressions = [[0, 3, 5, 0], [0, -2, -5, -2], [0, 5, 3, 7], [0, -5, -2, 3]];
+        const chapterTitle = document.getElementById('chapter-title');
+        const chapterNumber = document.getElementById('chapter-number');
+        let chapter = 0;
+        let variations = 0;
+
+        function playBeatStep() {
+            if (!state.playing) return;
+            const g = GENRES[state.genreIdx];
+            const idx = state.step % 16;
+            const bar = Math.floor(state.step / 16);
+            if (idx === 0 && bar > 0 && bar % 8 === 0) {
+                variations++;
+                chapter = (chapter + 1) % chapters.length;
+            }
+            const part = variations % progressions.length;
+            const shift = progressions[part][Math.floor(bar / 2) % 4];
+            const transpose = 2 ** (shift / 12);
+            const breakdown = bar % 8 === 4;
+            const leadStep = (idx + (part % 3) * 2) % 16;
+
+            // Alle 8 Steps wechselt der DJ aktiv zwischen linkem Deck, Mixer und rechtem Deck
+            if (idx % 8 === 0) {
+                state.activeDeck = (state.activeDeck + 1) % 2;
+            }
+
+            try {
+                ensureAudio();
+                if (audioCtx && masterComp) {
+                    const now = audioCtx.currentTime;
+
+                    // 1. Kick-Drum
+                    if (g.kicks[idx] && (!breakdown || idx % 8 === 0)) {
+                        state.bassPulse = 1.0;
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.connect(gain);
+                        gain.connect(masterComp);
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(state.genreIdx === 1 ? 145 : 170, now);
+                        osc.frequency.exponentialRampToValueAtTime(32, now + 0.18);
+                        gain.gain.setValueAtTime(0.75, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.23);
+                        osc.start(now);
+                        osc.stop(now + 0.23);
+                    }
+
+                    // 2. Snare / Clap
+                    if (g.snares[idx] && noiseBuffer) {
+                        state.snarePulse = 1.0;
+                        const noise = audioCtx.createBufferSource();
+                        noise.buffer = noiseBuffer;
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'bandpass';
+                        filter.frequency.setValueAtTime(state.genreIdx === 2 ? 1800 : 1350, now);
+                        const gain = audioCtx.createGain();
+                        noise.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(masterComp);
+                        gain.gain.setValueAtTime(0.36, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                        noise.start(now);
+                        noise.stop(now + 0.15);
+                    }
+
+                    // 3. Hi-Hat
+                    if (g.hats[idx] && noiseBuffer) {
+                        const noise = audioCtx.createBufferSource();
+                        noise.buffer = noiseBuffer;
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'highpass';
+                        filter.frequency.setValueAtTime(7800, now);
+                        const gain = audioCtx.createGain();
+                        noise.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(masterComp);
+                        const vol = (state.genreIdx === 1 && idx % 2 === 1) ? 0.12 : 0.15;
+                        gain.gain.setValueAtTime(vol, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+                        noise.start(now);
+                        noise.stop(now + 0.045);
+                    }
+
+                    // 4. Sub-Bass / 808
+                    const bFreq = breakdown ? 0 : g.bass[idx] * transpose;
+                    if (bFreq > 0) {
+                        const osc = audioCtx.createOscillator();
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(state.genreIdx === 0 ? 260 : 190, now);
+                        const gain = audioCtx.createGain();
+                        osc.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(masterComp);
+                        osc.type = state.genreIdx === 1 ? 'sine' : 'sawtooth';
+                        osc.frequency.setValueAtTime(bFreq, now);
+                        if (state.genreIdx === 1) {
+                            osc.frequency.exponentialRampToValueAtTime(bFreq * 0.92, now + g.bassDecay);
+                        }
+                        gain.gain.setValueAtTime(0.48, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + g.bassDecay);
+                        osc.start(now);
+                        osc.stop(now + g.bassDecay);
+                    }
+
+                    // 5. Genre-Lead Synth
+                    const lFreq = g.lead[leadStep] * transpose * (part === 3 && idx % 4 === 0 ? 2 : 1);
+                    if (lFreq > 0 && (Math.floor(state.step / 16) % 2 === 1 || state.genreIdx === 2)) {
+                        const osc = audioCtx.createOscillator();
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(1100 + state.bassPulse * 1100, now);
+                        const gain = audioCtx.createGain();
+                        osc.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(masterComp);
+                        osc.type = g.wave;
+                        osc.frequency.setValueAtTime(lFreq, now);
+                        gain.gain.setValueAtTime(0.15, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+                        osc.start(now);
+                        osc.stop(now + 0.19);
+                    }
+                }
+            } catch (e) {}
+
+            state.step++;
+        }
+
+        function startSequencer() {
+            clearInterval(stepTimer);
+            const g = GENRES[state.genreIdx];
+            const intervalMs = (60 / g.bpm / 4) * 1000;
+            state.step = 0;
+            playBeatStep();
+            stepTimer = setInterval(playBeatStep, intervalMs);
+        }
+
+        function updateThemeColors() {
+            const g = GENRES[state.genreIdx];
+            document.documentElement.style.setProperty('--accent', g.color);
+            document.documentElement.style.setProperty('--accent-sec', g.secondary);
+            document.getElementById('bpmBadge').textContent = `${g.bpm} BPM`;
+        }
+
+        function togglePlay() {
+            ensureAudio();
+            state.playing = !state.playing;
+            updateRequests();
+            const btn = document.getElementById('playBtn');
+
+            if (state.playing) {
+                btn.textContent = '⏸ PAUSE';
+                btn.classList.add('active');
+                startSequencer();
+            } else {
+                btn.textContent = '▶ PLAY';
+                btn.classList.remove('active');
+                clearInterval(stepTimer);
+            }
+        }
+
+        function selectGenre(idx) {
+            state.genreIdx = idx;
+            updateThemeColors();
+
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById(`genre${i}`);
+                btn.setAttribute('aria-pressed', String(i === idx));
+            }
+
+            if (!state.playing) {
+                togglePlay();
+            } else {
+                startSequencer();
+            }
+        }
+
+        function triggerEffect(type) {
+            if (!state.playing) togglePlay();
+            ensureAudio();
+
+            state.effectType = type;
+            state.effectTimer = 90;
+            state.bassPulse = 1.7;
+
+            const w = canvas.width || 540;
+            const h = canvas.height || 960;
+            const particleCount = type === 'rose' ? 65 : 30;
+            const colors = type === 'rose'
+                ? ['#f43f5e', '#fb7185', '#fda4af', '#facc15', '#ffffff']
+                : ['#e879f9', '#22d3ee', '#facc15', '#ffffff'];
+
+            for (let i = 0; i < particleCount; i++) {
+                state.confetti.push({
+                    x: w * 0.15 + Math.random() * (w * 0.7),
+                    y: h * 0.25 + (Math.random() - 0.5) * 120,
+                    vx: (Math.random() - 0.5) * 9,
+                    vy: -3 - Math.random() * 7,
+                    gravity: 0.18 + Math.random() * 0.1,
+                    color: colors[i % colors.length],
+                    size: 5 + Math.random() * 6,
+                    isRose: type === 'rose' && i % 4 === 0
+                });
+            }
+
+            try {
+                if (audioCtx && masterComp) {
+                    const now = audioCtx.currentTime;
+
+                    if (type === 'horn') {
+                        // Dreifaches Club-Airhorn
+                        [0, 0.14, 0.28].forEach((offset, idx) => {
+                            const dur = idx === 2 ? 0.36 : 0.11;
+                            const osc1 = audioCtx.createOscillator();
+                            const osc2 = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            osc1.type = 'sawtooth';
+                            osc2.type = 'sawtooth';
+                            osc1.frequency.setValueAtTime(466.16, now + offset);
+                            osc2.frequency.setValueAtTime(587.33, now + offset);
+                            osc1.connect(gain);
+                            osc2.connect(gain);
+                            gain.connect(masterComp);
+                            gain.gain.setValueAtTime(0.24, now + offset);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + offset + dur);
+                            osc1.start(now + offset);
+                            osc2.start(now + offset);
+                            osc1.stop(now + offset + dur);
+                            osc2.stop(now + offset + dur);
+                        });
+                    } else if (type === 'drop') {
+                        // Massiver Sub-Bass Impact + Riser-Release
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(160, now);
+                        osc.frequency.exponentialRampToValueAtTime(26, now + 0.85);
+                        osc.connect(gain);
+                        gain.connect(masterComp);
+                        gain.gain.setValueAtTime(0.85, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+                        osc.start(now);
+                        osc.stop(now + 0.9);
+
+                        if (noiseBuffer) {
+                            const noise = audioCtx.createBufferSource();
+                            noise.buffer = noiseBuffer;
+                            const filter = audioCtx.createBiquadFilter();
+                            filter.type = 'lowpass';
+                            filter.frequency.setValueAtTime(2400, now);
+                            filter.frequency.exponentialRampToValueAtTime(120, now + 0.65);
+                            const nGain = audioCtx.createGain();
+                            noise.connect(filter);
+                            filter.connect(nGain);
+                            nGain.connect(masterComp);
+                            nGain.gain.setValueAtTime(0.45, now);
+                            nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+                            noise.start(now);
+                            noise.stop(now + 0.65);
+                        }
+                    } else if (type === 'rose') {
+                        // Euphorischer Rose-Fanfare + Sub-Drop
+                        const notes = [523.25, 659.25, 783.99, 1046.5];
+                        notes.forEach((freq, i) => {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.setValueAtTime(freq, now + i * 0.07);
+                            osc.connect(gain);
+                            gain.connect(masterComp);
+                            gain.gain.setValueAtTime(0.28, now + i * 0.07);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.45);
+                            osc.start(now + i * 0.07);
+                            osc.stop(now + i * 0.07 + 0.45);
+                        });
+                        const sub = audioCtx.createOscillator();
+                        const subGain = audioCtx.createGain();
+                        sub.type = 'sine';
+                        sub.frequency.setValueAtTime(130, now + 0.21);
+                        sub.frequency.exponentialRampToValueAtTime(30, now + 0.85);
+                        sub.connect(subGain);
+                        subGain.connect(masterComp);
+                        subGain.gain.setValueAtTime(0.75, now + 0.21);
+                        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+                        sub.start(now + 0.21);
+                        sub.stop(now + 0.85);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+            canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        updateThemeColors();
+
+        // Nebel-Partikel initialisieren für Club-Atmosphäre
+        for (let i = 0; i < 14; i++) {
+            state.smoke.push({
+                x: Math.random(),
+                y: 0.2 + Math.random() * 0.55,
+                r: 0.14 + Math.random() * 0.18,
+                speed: (Math.random() - 0.5) * 0.0006,
+                alpha: 0.03 + Math.random() * 0.04
+            });
+        }
+
+        let travelled = 0;
+        let lastFrame = 0;
+        function renderScene(now = 0) {
+            requestAnimationFrame(renderScene);
+            const dt = lastFrame ? Math.min(50, now - lastFrame) : 0;
+            lastFrame = now;
+            if (state.playing) travelled += dt * (.00024 + GENRES[state.genreIdx].bpm * .000002);
+            const w = canvas.width, h = canvas.height;
+            if (!w || !h) return;
+            const g = GENRES[state.genreIdx];
+            const route = state.genreIdx;
+            const mid = w * (.46 + route * .026), horizon = h * [.51,.61,.55,.49][route];
+            const sky = ctx.createLinearGradient(0, 0, 0, h);
+            sky.addColorStop(0, '#080815');
+            sky.addColorStop(.54, ['#35134d','#512338','#14374a','#74405a'][chapter]);
+            sky.addColorStop(1, '#0c091a');
+            ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+
+            const glow = ctx.createRadialGradient(mid, horizon, 0, mid, horizon, w * .63);
+            glow.addColorStop(0, g.color + '77');
+            glow.addColorStop(1, '#09081600');
+            ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
+            for (let i = 0; i < 54; i++) {
+                const x = (i * 137 % 701) / 701 * w;
+                const y = (i * 97 % 523) / 523 * horizon * .90;
+                ctx.fillStyle = i % 5 === 0 ? '#ffc5ff' : '#f0e9ff77';
+                ctx.fillRect(x, y, Math.max(1, w / 480) * (i % 5 === 0 ? 2 : 1), Math.max(1, w / 480));
+            }
+            ctx.fillStyle = '#ffb3dd';
+            ctx.beginPath(); ctx.arc(w * .72, horizon - h * .084, w * .085, 0, Math.PI * 2); ctx.fill();
+
+            // Rear skyline, foreground blocks and moving road establish depth.
+            for (let layer = 0; layer < 2; layer++) {
+                for (let i = 0; i < 22; i++) {
+                    const step = w / 18;
+                    const x = ((i * step - travelled * w * (.007 + layer * .013)) % (22 * step) + 22 * step) % (22 * step) - 2 * step;
+                    const height = (12 + ((i * 13 + chapter * 9 + route * 11 + layer * 17) % 43)) * h * (.0018 + layer * .0015);
+                    const y = horizon + h * layer * .08 - height;
+                    ctx.fillStyle = layer ? '#0a0a17' : '#20152e';
+                    ctx.fillRect(x, y, step * .77, height);
+                    ctx.fillStyle = layer ? g.secondary + '83' : '#e5a4e854';
+                    for (let row = 1; row < 6; row++) {
+                        if ((i + row) % 3 !== 0) ctx.fillRect(x + step * .18, y + height * row / 7, step * .12, Math.max(1, h / 430));
+                    }
+                }
+            }
+            ctx.fillStyle = '#0b0b17';
+            ctx.beginPath(); ctx.moveTo(mid - w*.025,horizon); ctx.lineTo(mid+w*.025,horizon);
+            ctx.lineTo(w*1.03,h); ctx.lineTo(-w*.03,h); ctx.fill();
+            for (const side of [-1, 1]) {
+                ctx.strokeStyle = g.color; ctx.lineWidth = Math.max(1, w / 210);
+                ctx.beginPath(); ctx.moveTo(mid + side * w*.025,horizon); ctx.lineTo(mid + side * w*.52,h); ctx.stroke();
+            }
+            for (let i = 0; i < 14; i++) {
+                const distance = ((i / 14 + travelled * .8) % 1) ** 2;
+                const y = horizon + distance * (h - horizon);
+                const spread = w * (.018 + .43 * distance);
+                ctx.strokeStyle = g.secondary + '80'; ctx.lineWidth = Math.max(1, distance * w / 300);
+                ctx.beginPath(); ctx.moveTo(mid - spread,y); ctx.lineTo(mid + spread,y); ctx.stroke();
+            }
+            if (state.bassPulse > .02) {
+                ctx.fillStyle = g.color + '20';
+                ctx.fillRect(0, horizon, w, h - horizon);
+                state.bassPulse *= Math.pow(.90, dt / 16.67);
+            }
+        }
+
+        renderScene();
+
+
+
+        const wsDot = document.getElementById('wsDot');
+        const requestStatus = document.getElementById('vote-status');
+        const requestGuide = document.getElementById('vote-guide');
+        const genreLabels = ['TECHNO', 'TRAP', 'HOUSE', 'CHILL'];
+        const choices = new Map();
+        const giftGenres = new Map([
+            ['rose', 0], ['finger heart', 1], ['fingerherz', 1],
+            ['doughnut', 2], ['donut', 2], ['perfume', 3], ['parfüm', 3], ['parfum', 3]
+        ]);
+        const giftIds = new Set();
+        const requests = [];
+        const testMode = location.hash === '#test' || location.hash === '#vote-test';
+        let connected = false;
+        let active = null;
+        let endAt = 0;
+        let pausedAt = null;
+        let backgroundGenre = state.genreIdx;
+        const useVoice = new URLSearchParams(location.search).get('voice') === '1';
+        let lastAnnouncement = -Infinity;
+
+        function announce(genre) {
+            const now = performance.now();
+            if (!useVoice || !window.speechSynthesis || !window.SpeechSynthesisUtterance ||
+                window.speechSynthesis.speaking || now - lastAnnouncement < 8000) return;
+            const line = new window.SpeechSynthesisUtterance(
+                ['Nächster Halt: Neontunnel. Techno.', 'Nächster Halt: Betonviertel. Trap.',
+                 'Nächster Halt: Lichterbrücke. House.', 'Nächster Halt: Sternenhafen. Chill.'][genre]);
+            line.lang = 'de-DE';
+            line.volume = .66;
+            try { window.speechSynthesis.speak(line); lastAnnouncement = now; } catch {}
+        }
+
+        if (testMode) {
+            requestGuide.textContent = 'Test: Genre wählen und Testgeschenk anklicken';
+            document.getElementById('gift-test').hidden = false;
+        }
+
+        function updateRequests() {
+            const now = performance.now();
+            if (!state.playing) {
+                if (active && pausedAt === null) pausedAt = now;
+                requestStatus.textContent = 'DJ pausiert';
+                return;
+            }
+            if (pausedAt !== null) {
+                endAt += now - pausedAt;
+                pausedAt = null;
+            }
+            const ended = active && now >= endAt;
+            if (ended) active = null;
+            if (!active && requests.length) {
+                active = requests.shift();
+                announce(active.genre);
+                endAt = now + active.seconds * 1000;
+                if (active.genre !== state.genreIdx) selectGenre(active.genre);
+            } else if (ended && state.genreIdx !== backgroundGenre) {
+                selectGenre(backgroundGenre);
+            }
+            const label = active
+                ? genreLabels[active.genre] + ' · ' + Math.ceil((endAt - now) / 1000) + ' s' +
+                    (requests.length ? ' · ' + requests.length + ' wartet' : '')
+                : testMode ? 'Test bereit' : connected ? 'Wünsche offen' : 'TikFinity getrennt';
+            if (requestStatus.textContent !== label) requestStatus.textContent = label;
+            const destination = active ? routes[active.genre] : chapters[chapter];
+            if (chapterTitle.textContent !== destination) chapterTitle.textContent = destination;
+            const routeLabel = active ? 'ZUSCHAUER-ROUTE' : 'HALT ' + String(chapter + 1).padStart(2, '0');
+            if (chapterNumber.textContent !== routeLabel) chapterNumber.textContent = routeLabel;
+        }
+
+        function pressGenre(genre) {
+            if (testMode) {
+                choices.set('test', genre);
+                requestGuide.textContent = 'Testwunsch: ' + genreLabels[genre];
+                if (!state.playing) togglePlay();
+                return;
+            }
+            backgroundGenre = genre;
+            if (!active) selectGenre(genre);
+        }
+
+        function viewerKey(event) {
+            const user = String(event.uniqueId ?? event.user?.uniqueId ?? '').trim().toLowerCase();
+            const id = event.userId ?? event.user?.userId ?? event.user?.id;
+            return user ? 'handle:' + user : id ? 'id:' + id : '';
+        }
+
+        function queueGift(genre, value) {
+            if (genre === undefined || !Number.isFinite(value) || value < 1) return;
+            const seconds = Math.min(120, 14 + Math.floor(value));
+            requests.push({genre, seconds});
+            updateRequests();
+        }
+
+        function testGift(value) {
+            if (testMode) queueGift(choices.get('test'), value);
+        }
+
+        function connectTikFinity() {
+            let socket;
+            try { socket = new WebSocket('ws://localhost:21213/'); }
+            catch { return; }
+            socket.addEventListener('open', () => {
+                connected = true;
+                wsDot.classList.add('connected');
+                updateRequests();
+            });
+            socket.addEventListener('close', () => {
+                connected = false;
+                wsDot.classList.remove('connected');
+                updateRequests();
+                setTimeout(connectTikFinity, 3500);
+            });
+            socket.addEventListener('message', ({data}) => {
+                let message;
+                try { message = JSON.parse(data); } catch { return; }
+                const event = message?.data;
+                if (!event || testMode) return;
+                const viewer = viewerKey(event);
+                if (message.event === 'chat') {
+                    const match = /^!?\s*(techno|trap|house|chill)$/i.exec(String(event.comment ?? '').trim());
+                    if (!match || !viewer) return;
+                    choices.set(viewer, genreLabels.indexOf(match[1].toUpperCase()));
+                    if (choices.size > 5000) choices.delete(choices.keys().next().value);
+                    return;
+                }
+                if (message.event !== 'gift') return;
+                const name = String(event.giftName ?? event.gift?.name ?? event.extendedGiftInfo?.name ?? '').trim().toLowerCase();
+                const rose = Number(event.giftId ?? event.gift?.id) === 5655 || name === 'rose';
+                if (Number(event.giftType ?? event.gift?.type) === 1 && !event.repeatEnd) return;
+                const id = event.groupId || event.msgId || event.messageId;
+                const key = id ? viewer + ':' + id : '';
+                if (key && giftIds.has(key)) return;
+                if (key) {
+                    giftIds.add(key);
+                    if (giftIds.size > 300) giftIds.delete(giftIds.values().next().value);
+                }
+                const value = Number(event.diamondCount ?? event.gift?.diamondCount ??
+                    event.extendedGiftInfo?.diamond_count ?? event.extendedGiftInfo?.diamondCount ?? (rose ? 1 : NaN));
+                const count = Math.max(1, Math.floor(Number(event.repeatCount) || 1));
+                const genre = rose ? 0 : giftGenres.get(name) ?? choices.get(viewer);
+                queueGift(genre, value * count);
+            });
+        }
+
+        setInterval(updateRequests, 200);
+        connectTikFinity();
+
+        async function startStudioPlayback() {
+            const params = new URLSearchParams(location.search);
+            if (testMode || params.get('autoplay') === '0') return;
+            await ensureAudio();
+            if (!state.playing && audioCtx?.state === 'running') togglePlay();
+        }
+
+        startStudioPlayback();
+    </script>
+</body>
+</html>
