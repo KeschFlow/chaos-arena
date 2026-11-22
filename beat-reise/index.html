@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BEAT REISE · TikTok LIVE</title>
+    <title>Eddies Spurensuche · TikTok LIVE</title>
     <style>
         :root {
             color-scheme: dark;
@@ -162,39 +162,27 @@
             background: #07050e;
         }
 
-        #roadStatus {
-            width: min(86%, 32rem);
-            display: grid;
-            gap: .38em;
-            font-variant-numeric: tabular-nums;
-            position: absolute;
-            z-index: 2;
-            left: 7%;
-            top: 37%;
-            padding: .34em .7em;
-            border: 1px solid var(--accent);
-            border-radius: .45em;
-            background: #100b20dc;
-            color: #fff;
-            font-size: clamp(12px, 1.8dvh, 25px);
-            font-weight: 800;
-            pointer-events: none;
+        .hunt { position:absolute; inset:19% 5% 25%; display:flex; flex-direction:column;
+            justify-content:center; gap:clamp(8px,2dvh,30px); text-align:center; }
+        .hunt h2 { margin:0; font-size:clamp(24px,5dvh,80px); line-height:1.04; text-wrap:balance; }
+        #hint { margin:0; font-size:clamp(13px,2.2dvh,32px); color:#ebd6ff; }
+        #arrival-label { font-size:clamp(14px,2.6dvh,40px); color:#ffe7a3; font-weight:800; }
+        #arrival-progress { width:82%; height:7px; margin:0 auto; accent-color:#ffcd80; }
+        .hideouts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4%; }
+        .hideouts button { padding:.4em .1em; min-width:0; cursor:pointer; color:#fff0d1;
+            font:900 clamp(17px,3.9dvh,56px)/1.25 system-ui; border:2px solid #b98a67;
+            border-radius:38% 38% 10% 10%; background:repeating-linear-gradient(90deg,#392335,#392335 23%,#603c3c 25%,#392335 28%);
+            box-shadow:inset 0 0 18px #261425, 0 .2em .5em #030207; }
+        .hideouts button[aria-pressed="true"] { outline:2px solid var(--accent); outline-offset:2px; }
+        .hideouts button[data-found] { border-color:#ffe084; background:#55411c; box-shadow:0 0 .9em #fbbf6888; }
+        .hideouts span,.hideouts small { display:block; }
+        .hideouts small { min-height:1.25em; font-size:.4em; }
+        @media(max-width:420px) {
+            header { padding-inline:8px; gap:5px; }
+            .brand,.header-controls { gap:5px; }
+            h1 { font-size:13px; }
+            #playBtn,#bpmBadge,.live-pill { padding-inline:5px; }
         }
-
-        #arrival-progress {
-            width: 100%;
-            height: .28em;
-            border: 0;
-            appearance: none;
-            background: #ffffff26;
-            border-radius: 1em;
-            overflow: hidden;
-        }
-
-        #arrival-progress::-webkit-progress-bar { background: #ffffff26; }
-        #arrival-progress::-webkit-progress-value { background: var(--accent); }
-
-        #arrival-label[data-arrived] { color: #ffd69a; }
 
         canvas {
             display: block;
@@ -279,10 +267,6 @@
         .gift-icon { display:grid; place-items:center; font:normal clamp(15px,2.5dvh,29px)/1 "Segoe UI Emoji",sans-serif; }
         .gift-icon svg { display:block; width:1em; height:1em; }
         .genres button span { position:relative; z-index:1; }
-        .chapter { position:absolute; top:22%; left:7%; right:7%; pointer-events:none;
-            text-shadow:0 3px 18px #090610; }
-        #chapter-number { display:block; color:#e4deff; font-size:clamp(11px,2dvh,22px); letter-spacing:.15em; overflow-wrap:anywhere; }
-        #chapter-title { display:block; font-size:clamp(27px,6dvh,84px); line-height:.98; max-width:100%; }
         #vote-status { font-size:clamp(13px,2.3dvh,30px); }
     </style>
 </head>
@@ -291,7 +275,7 @@
     <header>
         <div class="brand">
             <span class="live-pill"><span class="live-dot"></span>LIVE</span>
-            <h1>BEAT REISE</h1>
+            <h1>EDDIE’S WORLD</h1>
         </div>
         <div class="header-controls">
             <span id="wsDot" class="ws-indicator" title="TikFinity WebSocket Status"></span>
@@ -300,21 +284,24 @@
         </div>
     </header>
 
-    <section id="stage" aria-label="Animierte Reise durch eine Neonstadt">
-        <canvas id="djCanvas"></canvas>
-        <div id="roadStatus">
-            <span id="arrival-label">Nächster Halt in 24 s</span>
-            <progress id="arrival-progress" max="24" value="0" aria-label="Fortschritt bis zur Ankunft"></progress>
-        </div>
-        <div class="chapter">
-            <span id="chapter-number"></span>
-            <strong id="chapter-title">Nachtfahrt</strong>
+    <section id="stage" aria-label="Eddies Spurensuche">
+        <canvas id="djCanvas" aria-hidden="true"></canvas>
+        <div class="hunt">
+            <h2>Wo ist Eddies Ball?</h2>
+            <p id="hint">Wähle 1, 2 oder 3. Achte auf die Spur.</p>
+            <div class="hideouts">
+                <button type="button" id="door1" aria-label="Versteck 1" aria-pressed="false">1<span aria-hidden="true">?</span><small></small></button>
+                <button type="button" id="door2" aria-label="Versteck 2" aria-pressed="false">2<span aria-hidden="true">?</span><small></small></button>
+                <button type="button" id="door3" aria-label="Versteck 3" aria-pressed="false">3<span aria-hidden="true">?</span><small></small></button>
+            </div>
+            <div id="arrival-label">Auflösung in 20 s</div>
+            <progress id="arrival-progress" max="20" value="0" aria-label="Zeit bis zur Auflösung"></progress>
         </div>
     </section>
 
     <div class="dock">
         <div class="vote-board">
-            <span id="vote-guide">Geschenk wählen · Route und Sound wechseln</span>
+            <span id="vote-guide">Geschenke wechseln die Musik</span>
             <span id="vote-status" role="status">TikFinity getrennt</span>
         </div>
         <div class="genres" role="group" aria-label="Musikrichtung">
@@ -438,8 +425,6 @@
             }
         }
 
-        const chapters = ['Nachtfahrt', 'Neonviertel', 'Über den Dächern', 'Morgengrauen'];
-        const routes = ['Neontunnel', 'Betonviertel', 'Lichterbrücke', 'Sternenhafen'];
         // Each phrase uses a different chord progression and a composed eight-note motif.
         const arrangements = [
             [
@@ -495,16 +480,12 @@
             oscillator.start(start);
             oscillator.stop(start + duration);
         }
-        const chapterTitle = document.getElementById('chapter-title');
-        const chapterNumber = document.getElementById('chapter-number');
-        let chapter = 0;
 
         function playBeatStep() {
             if (!state.playing) return;
             const g = GENRES[state.genreIdx];
             const {idx, phase, section, root, melody, wave} = musicAt(state.genreIdx, state.step);
             const breakdown = phase === 3;
-            chapter = section % chapters.length;
             const beatSeconds = 60 / g.bpm;
 
             // Alle 8 Steps wechselt der DJ aktiv zwischen linkem Deck, Mixer und rechtem Deck
@@ -513,8 +494,7 @@
             }
 
             try {
-                ensureAudio();
-                if (audioCtx && masterComp) {
+                if (audioCtx?.state === 'running' && masterComp) {
                     const now = audioCtx.currentTime;
 
                     // 1. Kick-Drum
@@ -804,209 +784,79 @@
             });
         }
 
-        const ROAD_EVENT_SECONDS = 8;
-        const roadEvents = ['Gegenverkehr', 'Kreuzung', 'Neontunnel'];
-        const rideSeconds = ROAD_EVENT_SECONDS * roadEvents.length;
-        const arrivalSeconds = 5;
-        const roundSeconds = rideSeconds + arrivalSeconds;
+        const guessSeconds = 20;
+        const roundSeconds = 25;
+        const doors = [1, 2, 3].map(i => document.getElementById('door' + i));
+        const hint = document.getElementById('hint');
+        const guesses = new Map();
+        const randomDoor = () => 1 + Math.floor(Math.random() * doors.length);
+        let huntTime = 0;
+        let lastFrame = null;
+        let round = 0;
+        let answer = randomDoor();
+        let lastDisplay = '';
 
-        function journeyAt(seconds) {
-            const elapsed = seconds % roundSeconds;
-            return {
-                elapsed,
-                lap: Math.floor(seconds / roundSeconds),
-                remaining: Math.max(0, Math.ceil(rideSeconds - elapsed)),
-                arrived: elapsed >= rideSeconds
-            };
+        function guess(viewer, number) {
+            if (state.playing && huntTime % roundSeconds < guessSeconds) guesses.set(viewer, number);
         }
 
-        function showArrival(w, h, mid, horizon, g, elapsed) {
-            const strength = Math.min(1, (elapsed - rideSeconds) * 1.7);
-            ctx.save();
-            ctx.globalAlpha = strength;
-            const halo = ctx.createRadialGradient(mid, horizon, 0, mid, horizon, w * .75);
-            halo.addColorStop(0, '#fff3c5d9');
-            halo.addColorStop(.22, g.color + 'c0');
-            halo.addColorStop(1, g.color + '00');
-            ctx.fillStyle = halo;
-            ctx.fillRect(0, 0, w, h);
-            ctx.globalCompositeOperation = 'screen';
-            for (let i = 0; i < 7; i++) {
-                const x = w * i / 6;
-                const sway = Math.sin(elapsed * 2 + i) * w * .13;
-                ctx.fillStyle = i % 2 ? g.secondary + '3f' : g.color + '55';
-                ctx.beginPath();
-                ctx.moveTo(mid, horizon);
-                ctx.lineTo(x + sway - w * .10, 0);
-                ctx.lineTo(x + sway + w * .10, 0);
-                ctx.closePath();
-                ctx.fill();
-            }
-            ctx.restore();
-        }
-        let roadSeconds = 0;
+        doors.forEach((door, i) => door.addEventListener('click', () => guess('local', i + 1)));
 
-        function drawVehicle(x, y, size, body, lights, sideView = false) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.scale(size, size);
-            ctx.fillStyle = '#04050b';
-            ctx.fillRect(-.51, -.19, .18, .24);
-            ctx.fillRect(.33, -.19, .18, .24);
-            ctx.fillStyle = body;
-            ctx.beginPath();
-            ctx.moveTo(-.54, -.14); ctx.lineTo(-.54, -.38);
-            ctx.lineTo(-.34, -.65); ctx.lineTo(sideView ? -.07 : .34, -.65);
-            ctx.lineTo(sideView ? .18 : .5, -.39); ctx.lineTo(.54, -.34);
-            ctx.lineTo(.54, -.14); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = '#142033';
-            ctx.fillRect(-.26, -.58, sideView ? .28 : .52, .18);
-            ctx.fillStyle = lights;
-            ctx.shadowColor = lights;
-            ctx.shadowBlur = size * .23;
-            ctx.fillRect(-.46, -.32, .19, .11);
-            ctx.fillRect(.27, -.32, .19, .11);
-            ctx.restore();
-        }
-
-        function drawRoadEvent(w, h, mid, horizon, genre, journey) {
-            const eventNumber = Math.floor(journey.elapsed / ROAD_EVENT_SECONDS);
-            const phase = eventNumber % roadEvents.length;
-            const progress = journey.elapsed / ROAD_EVENT_SECONDS % 1;
-            const depthY = h - horizon;
-            if (phase === 0) {
-                for (let i = 0; i < 2; i++) {
-                    const approach = progress * 1.5 + .24 - .49 * i;
-                    if (approach < 0 || approach > 1.12) continue;
-                    const depth = approach ** 2;
-                    const size = w * (.05 + .36 * depth);
-                    const x = mid - w * (.025 + depth * .26);
-                    drawVehicle(x, horizon + depthY * .89 * depth, size,
-                        i ? '#ae82ff' : '#49d7dd', '#fff4c3');
-                }
-            } else if (phase === 1) {
-                const depth = .23 + .68 * progress ** 1.6;
-                const y = horizon + depthY * depth;
-                const thickness = h * (.018 + .067 * depth);
-                ctx.fillStyle = '#111524';
-                ctx.fillRect(0, y - thickness, w, thickness);
-                ctx.fillStyle = '#ffc38c';
-                for (let i = 0; i < 11; i++) {
-                    ctx.fillRect(w * (.025 + i * .09), y - thickness * .54, w * .046, thickness * .09);
-                }
-                const fromLeft = journey.lap % 2 === 0;
-                const crossing = -0.22 + 1.44 * Math.min(1, progress * 1.44);
-                drawVehicle(w * (fromLeft ? crossing : 1 - crossing), y - thickness * .2,
-                    w * (.15 + depth * .25), '#ff9a50', '#ffe9a6', true);
-            } else {
-                // Near arches move past the camera while farther arches stay in view.
-                for (let i = 5; i >= 0; i--) {
-                    const approach = .26 + progress * 1.55 - i * .23;
-                    if (approach < 0 || approach > 1.42) continue;
-                    const depth = approach ** 2;
-                    const base = horizon + depthY * depth * .95;
-                    const radius = w * (.095 + .51 * depth);
-                    const top = base - h * (.12 + .62 * depth);
-                    ctx.lineJoin = 'round';
-                    ctx.beginPath();
-                    ctx.moveTo(mid - radius, base);
-                    ctx.lineTo(mid - radius, top + radius * .56);
-                    ctx.lineTo(mid - radius * .65, top);
-                    ctx.lineTo(mid + radius * .65, top);
-                    ctx.lineTo(mid + radius, top + radius * .56);
-                    ctx.lineTo(mid + radius, base);
-                    ctx.strokeStyle = '#181327';
-                    ctx.lineWidth = w * (.021 + .034 * depth);
-                    ctx.stroke();
-                    ctx.strokeStyle = i % 2 ? genre.secondary : genre.color;
-                    ctx.lineWidth = w * (.004 + .006 * depth);
-                    ctx.stroke();
-                }
-            }
-        }
-
-        let travelled = 0;
-        let lastFrame = 0;
-        function renderScene(now = 0) {
-            requestAnimationFrame(renderScene);
-            const dt = lastFrame ? Math.min(50, now - lastFrame) : 0;
+        function renderHunt(now = 0) {
+            requestAnimationFrame(renderHunt);
+            if (lastFrame !== null && state.playing) huntTime += Math.min(100, now - lastFrame) / 1000;
             lastFrame = now;
-            if (state.playing) {
-                travelled += dt * (.00024 + GENRES[state.genreIdx].bpm * .000002);
-                roadSeconds += dt / 1000;
+            const roundNow = Math.floor(huntTime / roundSeconds);
+            if (roundNow !== round) {
+                round = roundNow;
+                answer = randomDoor();
+                guesses.clear();
+            }
+            const elapsed = huntTime % roundSeconds;
+            const revealed = elapsed >= guessSeconds;
+            const trail = elapsed >= 14;
+            const seconds = Math.max(0, Math.ceil(guessSeconds - elapsed));
+            const display = [round, seconds, connected, guesses.size, guesses.get('local')].join(':');
+            // Recompute totals since a viewer may change their vote.
+            const counts = [0, 0, 0];
+            for (const choice of guesses.values()) counts[choice - 1]++;
+            const signature = display + ':' + counts.join(',');
+            if (signature !== lastDisplay) {
+                lastDisplay = signature;
+                doors.forEach((door, i) => {
+                    const correct = answer === i + 1;
+                    door.toggleAttribute('data-found', correct && revealed);
+                    door.setAttribute('aria-pressed', String(guesses.get('local') === i + 1));
+                    door.querySelector('span').textContent = revealed ? (correct ? '🎾' : '–') : (trail && correct ? '🐾' : '?');
+                    door.querySelector('small').textContent = counts[i] ? counts[i] + ' × gewählt' : '';
+                });
+                hint.textContent = revealed ? (guesses.size ? counts[answer - 1] + ' richtig geraten' : 'Gleich kommt das nächste Versteck.') :
+                    connected ? 'Schreib 1, 2 oder 3 in den LIVE-Chat.' : 'Wähle 1, 2 oder 3. Achte auf die Spur.';
+                arrivalLabel.textContent = revealed ? 'Ball in Versteck ' + answer + '!' : 'Auflösung in ' + seconds + ' s';
+                arrivalProgress.value = guessSeconds - seconds;
             }
             const w = canvas.width, h = canvas.height;
-            if (!w || !h) return;
             const g = GENRES[state.genreIdx];
-            const route = state.genreIdx;
-            const mid = w * (.46 + route * .026), horizon = h * [.51,.61,.55,.49][route];
             const sky = ctx.createLinearGradient(0, 0, 0, h);
-            sky.addColorStop(0, '#080815');
-            sky.addColorStop(.54, ['#35134d','#512338','#14374a','#74405a'][chapter]);
-            sky.addColorStop(1, '#0c091a');
-            ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
-
-            const glow = ctx.createRadialGradient(mid, horizon, 0, mid, horizon, w * .63);
-            glow.addColorStop(0, g.color + '77');
-            glow.addColorStop(1, '#09081600');
-            ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
-            for (let i = 0; i < 54; i++) {
-                const x = (i * 137 % 701) / 701 * w;
-                const y = (i * 97 % 523) / 523 * horizon * .90;
-                ctx.fillStyle = i % 5 === 0 ? '#ffc5ff' : '#f0e9ff77';
-                ctx.fillRect(x, y, Math.max(1, w / 480) * (i % 5 === 0 ? 2 : 1), Math.max(1, w / 480));
-            }
-            ctx.fillStyle = '#ffb3dd';
-            ctx.beginPath(); ctx.arc(w * .72, horizon - h * .084, w * .085, 0, Math.PI * 2); ctx.fill();
-
-            // Rear skyline, foreground blocks and moving road establish depth.
-            for (let layer = 0; layer < 2; layer++) {
-                for (let i = 0; i < 22; i++) {
-                    const step = w / 18;
-                    const x = ((i * step - travelled * w * (.007 + layer * .013)) % (22 * step) + 22 * step) % (22 * step) - 2 * step;
-                    const height = (12 + ((i * 13 + chapter * 9 + route * 11 + layer * 17) % 43)) * h * (.0018 + layer * .0015);
-                    const y = horizon + h * layer * .08 - height;
-                    ctx.fillStyle = layer ? '#0a0a17' : '#20152e';
-                    ctx.fillRect(x, y, step * .77, height);
-                    ctx.fillStyle = layer ? g.secondary + '83' : '#e5a4e854';
-                    for (let row = 1; row < 6; row++) {
-                        if ((i + row) % 3 !== 0) ctx.fillRect(x + step * .18, y + height * row / 7, step * .12, Math.max(1, h / 430));
-                    }
-                }
-            }
-            ctx.fillStyle = '#0b0b17';
-            ctx.beginPath(); ctx.moveTo(mid - w*.025,horizon); ctx.lineTo(mid+w*.025,horizon);
-            ctx.lineTo(w*1.03,h); ctx.lineTo(-w*.03,h); ctx.fill();
-            for (const side of [-1, 1]) {
-                ctx.strokeStyle = g.color; ctx.lineWidth = Math.max(1, w / 210);
-                ctx.beginPath(); ctx.moveTo(mid + side * w*.025,horizon); ctx.lineTo(mid + side * w*.52,h); ctx.stroke();
-            }
-            for (let i = 0; i < 14; i++) {
-                const distance = ((i / 14 + travelled * .8) % 1) ** 2;
-                const y = horizon + distance * (h - horizon);
-                const spread = w * (.018 + .43 * distance);
-                ctx.strokeStyle = g.secondary + '80'; ctx.lineWidth = Math.max(1, distance * w / 300);
-                ctx.beginPath(); ctx.moveTo(mid - spread,y); ctx.lineTo(mid + spread,y); ctx.stroke();
-            }
-            const journey = journeyAt(roadSeconds);
-            if (journey.arrived) showArrival(w, h, mid, horizon, g, journey.elapsed);
-            else drawRoadEvent(w, h, mid, horizon, g, journey);
-            const arrivalText = journey.arrived ? 'Ziel erreicht · Lichtshow' : 'Nächster Halt in ' + journey.remaining + ' s';
-            if (arrivalLabel.textContent !== arrivalText) {
-                arrivalLabel.textContent = arrivalText;
-                arrivalLabel.toggleAttribute('data-arrived', journey.arrived);
-                arrivalProgress.value = rideSeconds - journey.remaining;
-            }
-            if (state.bassPulse > .02) {
-                ctx.fillStyle = g.color + '20';
-                ctx.fillRect(0, horizon, w, h - horizon);
-                state.bassPulse *= Math.pow(.90, dt / 16.67);
+            sky.addColorStop(0, '#080614');
+            sky.addColorStop(.55, g.ambient);
+            sky.addColorStop(1, '#080613');
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, 0, w, h);
+            const light = ctx.createRadialGradient(w * .5, h * .55, 0, w * .5, h * .55, w * .65);
+            light.addColorStop(0, revealed ? '#f6ac5066' : g.color + '45');
+            light.addColorStop(1, '#0c071800');
+            ctx.fillStyle = light;
+            ctx.fillRect(0, 0, w, h);
+            for (let i = 0; i < 22; i++) {
+                const x = ((i * 137 % 401) / 401 + Math.sin(elapsed + i) * .013) * w;
+                const y = (.12 + (i * 61 % 311) / 311 * .72) * h;
+                ctx.fillStyle = i % 2 ? '#ffe1a355' : g.secondary + '4a';
+                ctx.beginPath();
+                ctx.arc(x, y, Math.max(1, w * (.002 + (i % 4) * .0013)), 0, Math.PI * 2);
+                ctx.fill();
             }
         }
-
-        renderScene();
-
-
 
         const wsDot = document.getElementById('wsDot');
         const requestStatus = document.getElementById('vote-status');
@@ -1033,8 +883,7 @@
             if (!useVoice || !window.speechSynthesis || !window.SpeechSynthesisUtterance ||
                 window.speechSynthesis.speaking || now - lastAnnouncement < 8000) return;
             const line = new window.SpeechSynthesisUtterance(
-                ['Nächster Halt: Neontunnel. Techno.', 'Nächster Halt: Betonviertel. Trap.',
-                 'Nächster Halt: Lichterbrücke. House.', 'Nächster Halt: Sternenhafen. Chill.'][genre]);
+                ['Jetzt läuft Techno.', 'Jetzt läuft Trap.', 'Jetzt läuft House.', 'Jetzt läuft Chill.'][genre]);
             line.lang = 'de-DE';
             line.volume = .66;
             try { window.speechSynthesis.speak(line); lastAnnouncement = now; } catch {}
@@ -1067,16 +916,10 @@
                 selectGenre(backgroundGenre);
             }
             const label = active
-                ? genreLabels[active.genre] + ' · ' + Math.ceil((endAt - now) / 1000) + ' s' +
+                ? genreLabels[active.genre] + (active.name ? ' · ' + active.name : '') + ' · ' + Math.ceil((endAt - now) / 1000) + ' s' +
                     (requests.length ? ' · ' + requests.length + ' wartet' : '')
                 : testMode ? 'Test bereit' : connected ? 'Wünsche offen' : 'TikFinity getrennt';
             if (requestStatus.textContent !== label) requestStatus.textContent = label;
-            const journey = journeyAt(roadSeconds);
-            const destination = active ? routes[active.genre] : chapters[journey.lap % chapters.length];
-            if (chapterTitle.textContent !== destination) chapterTitle.textContent = destination;
-            const routeLabel = active?.name ? 'ROUTE VON ' + active.name :
-                active ? 'ZUSCHAUER-ROUTE' : 'HALT ' + String(journey.lap + 1).padStart(2, '0');
-            if (chapterNumber.textContent !== routeLabel) chapterNumber.textContent = routeLabel;
         }
 
         function pressGenre(genre) {
@@ -1129,6 +972,11 @@
                 if (!event || testMode) return;
                 const viewer = viewerKey(event);
                 if (message.event === 'chat') {
+                    const number = String(event.comment ?? '').trim();
+                    if (viewer && /^[123]$/.test(number)) {
+                        guess(viewer, Number(number));
+                        return;
+                    }
                     const match = /^!?\s*(techno|trap|house|chill)$/i.exec(String(event.comment ?? '').trim());
                     if (!match || !viewer) return;
                     choices.set(viewer, genreLabels.indexOf(match[1].toUpperCase()));
@@ -1159,14 +1007,13 @@
         setInterval(updateRequests, 200);
         connectTikFinity();
 
-        async function startStudioPlayback() {
-            const params = new URLSearchParams(location.search);
-            if (testMode || params.get('autoplay') === '0') return;
-            await ensureAudio();
-            if (!state.playing && audioCtx?.state === 'running') togglePlay();
+        function unlockSound() {
+            if (state.playing && audioCtx?.state === 'suspended') ensureAudio();
         }
-
-        startStudioPlayback();
+        window.addEventListener('pointerdown', unlockSound);
+        window.addEventListener('keydown', unlockSound);
+        if (!testMode && new URLSearchParams(location.search).get('autoplay') !== '0') togglePlay();
+        renderHunt();
     </script>
 </body>
 </html>
