@@ -163,6 +163,10 @@
         }
 
         #roadStatus {
+            width: min(86%, 32rem);
+            display: grid;
+            gap: .38em;
+            font-variant-numeric: tabular-nums;
             position: absolute;
             z-index: 2;
             left: 7%;
@@ -176,6 +180,21 @@
             font-weight: 800;
             pointer-events: none;
         }
+
+        #arrival-progress {
+            width: 100%;
+            height: .28em;
+            border: 0;
+            appearance: none;
+            background: #ffffff26;
+            border-radius: 1em;
+            overflow: hidden;
+        }
+
+        #arrival-progress::-webkit-progress-bar { background: #ffffff26; }
+        #arrival-progress::-webkit-progress-value { background: var(--accent); }
+
+        #arrival-label[data-arrived] { color: #ffd69a; }
 
         canvas {
             display: block;
@@ -262,7 +281,7 @@
         .genres button span { position:relative; z-index:1; }
         .chapter { position:absolute; top:22%; left:7%; right:7%; pointer-events:none;
             text-shadow:0 3px 18px #090610; }
-        #chapter-number { display:block; color:#e4deff; font-size:clamp(11px,2dvh,22px); letter-spacing:.15em; }
+        #chapter-number { display:block; color:#e4deff; font-size:clamp(11px,2dvh,22px); letter-spacing:.15em; overflow-wrap:anywhere; }
         #chapter-title { display:block; font-size:clamp(27px,6dvh,84px); line-height:.98; max-width:100%; }
         #vote-status { font-size:clamp(13px,2.3dvh,30px); }
     </style>
@@ -283,7 +302,10 @@
 
     <section id="stage" aria-label="Animierte Reise durch eine Neonstadt">
         <canvas id="djCanvas"></canvas>
-        <div id="roadStatus">Gegenverkehr</div>
+        <div id="roadStatus">
+            <span id="arrival-label">Nächster Halt in 24 s</span>
+            <progress id="arrival-progress" max="24" value="0" aria-label="Fortschritt bis zur Ankunft"></progress>
+        </div>
         <div class="chapter">
             <span id="chapter-number"></span>
             <strong id="chapter-title">Nachtfahrt</strong>
@@ -308,7 +330,8 @@
     </div>
 
     <script>
-        const roadStatus = document.getElementById("roadStatus");
+        const arrivalLabel = document.getElementById('arrival-label');
+        const arrivalProgress = document.getElementById('arrival-progress');
         const canvas = document.getElementById('djCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -324,8 +347,7 @@
                 snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
                 hats:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1],
                 bass:   [41.2, 41.2, 55.0, 41.2, 41.2, 41.2, 61.7, 41.2, 41.2, 41.2, 55.0, 41.2, 49.0, 49.0, 65.4, 55.0],
-                lead:   [164.8, 0, 164.8, 196.0, 0, 164.8, 220.0, 0, 164.8, 0, 196.0, 246.9, 220.0, 0, 196.0, 0],
-                wave: 'sawtooth',
+
                 bassDecay: 0.22
             },
             {
@@ -338,8 +360,7 @@
                 snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
                 hats:   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
                 bass:   [36.7, 0, 0, 36.7, 0, 0, 43.6, 0, 41.2, 0, 0, 41.2, 0, 0, 32.7, 0],
-                lead:   [293.6, 0, 329.6, 349.2, 0, 329.6, 293.6, 0, 261.6, 0, 293.6, 329.6, 0, 261.6, 220.0, 0],
-                wave: 'square',
+
                 bassDecay: 0.38
             },
             {
@@ -352,8 +373,7 @@
                 snares: [0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0],
                 hats:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
                 bass:   [55.0, 0, 55.0, 65.4, 0, 55.0, 73.4, 0, 55.0, 0, 55.0, 82.4, 0, 73.4, 65.4, 0],
-                lead:   [220.0, 0, 261.6, 0, 329.6, 0, 293.6, 261.6, 220.0, 0, 392.0, 0, 329.6, 0, 293.6, 0],
-                wave: 'triangle',
+
                 bassDecay: 0.25
             },
             {
@@ -366,8 +386,7 @@
                 snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
                 hats:   [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1],
                 bass:   [43.6, 43.6, 0, 43.6, 0, 43.6, 51.9, 0, 43.6, 43.6, 0, 49.0, 0, 43.6, 38.9, 0],
-                lead:   [349.2, 0, 415.3, 0, 349.2, 0, 523.2, 0, 466.1, 0, 415.3, 0, 349.2, 0, 311.1, 0],
-                wave: 'sine',
+
                 bassDecay: 0.34
             }
         ];
@@ -421,26 +440,72 @@
 
         const chapters = ['Nachtfahrt', 'Neonviertel', 'Über den Dächern', 'Morgengrauen'];
         const routes = ['Neontunnel', 'Betonviertel', 'Lichterbrücke', 'Sternenhafen'];
-        const progressions = [[0, 3, 5, 0], [0, -2, -5, -2], [0, 5, 3, 7], [0, -5, -2, 3]];
+        // Each phrase uses a different chord progression and a composed eight-note motif.
+        const arrangements = [
+            [
+                {root: 40, chords: [0, 0, 3, -2], lead: [7, 12, 10, null, 7, 3, null, 10], wave: 'sawtooth'},
+                {root: 38, chords: [0, 5, 3, -2], lead: [12, null, 7, 3, 5, 7, 10, null], wave: 'triangle'},
+                {root: 43, chords: [0, -2, -4, -5], lead: [3, 7, null, 10, 12, null, 7, 5], wave: 'square'}
+            ],
+            [
+                {root: 38, chords: [0, -2, -4, -2], lead: [12, null, 7, null, 3, 7, null, 10], wave: 'triangle'},
+                {root: 41, chords: [0, 3, -2, -5], lead: [15, 12, null, 7, null, 3, 5, null], wave: 'sine'},
+                {root: 36, chords: [0, 5, 3, -2], lead: [7, null, 10, 12, null, 10, 3, null], wave: 'square'}
+            ],
+            [
+                {root: 45, chords: [0, -4, 3, -2], lead: [7, null, 10, 12, null, 15, 12, 10], wave: 'triangle'},
+                {root: 43, chords: [0, 5, 7, 3], lead: [12, 15, 19, null, 15, 12, null, 10], wave: 'sine'},
+                {root: 40, chords: [0, 3, 7, 5], lead: [3, 7, 12, null, 10, 7, 5, null], wave: 'triangle'}
+            ],
+            [
+                {root: 41, chords: [0, -2, -4, -5], lead: [12, null, 15, null, 7, null, 10, null], wave: 'sine'},
+                {root: 45, chords: [0, -5, -2, -4], lead: [7, null, 10, 12, null, 10, null, 3], wave: 'triangle'},
+                {root: 38, chords: [0, 3, 7, 5], lead: [15, null, 12, null, 10, 7, null, 5], wave: 'sine'}
+            ]
+        ];
+
+        function musicAt(genre, step) {
+            const bar = Math.floor(step / 16);
+            const idx = step % 16;
+            const section = Math.floor(bar / 4);
+            const phase = bar % 4;
+            const phrase = arrangements[genre][section % arrangements[genre].length];
+            const root = phrase.root + phrase.chords[phase];
+            const slot = Math.floor(idx / 2);
+            const melody = idx % 2 === 0 ? phrase.lead[(slot + (phase === 2 ? 4 : 0)) % 8] : null;
+            return {idx, phase, section, root, melody, wave: phrase.wave};
+        }
+
+        function hz(note) { return 440 * 2 ** ((note - 69) / 12); }
+
+        function synthNote(note, wave, start, duration, level, cutoff) {
+            const oscillator = audioCtx.createOscillator();
+            const filter = audioCtx.createBiquadFilter();
+            const gain = audioCtx.createGain();
+            oscillator.type = wave;
+            oscillator.frequency.value = hz(note);
+            filter.type = 'lowpass';
+            filter.frequency.value = cutoff;
+            oscillator.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterComp);
+            gain.gain.setValueAtTime(.001, start);
+            gain.gain.exponentialRampToValueAtTime(level, start + .024);
+            gain.gain.exponentialRampToValueAtTime(.001, start + duration);
+            oscillator.start(start);
+            oscillator.stop(start + duration);
+        }
         const chapterTitle = document.getElementById('chapter-title');
         const chapterNumber = document.getElementById('chapter-number');
         let chapter = 0;
-        let variations = 0;
 
         function playBeatStep() {
             if (!state.playing) return;
             const g = GENRES[state.genreIdx];
-            const idx = state.step % 16;
-            const bar = Math.floor(state.step / 16);
-            if (idx === 0 && bar > 0 && bar % 8 === 0) {
-                variations++;
-                chapter = (chapter + 1) % chapters.length;
-            }
-            const part = variations % progressions.length;
-            const shift = progressions[part][Math.floor(bar / 2) % 4];
-            const transpose = 2 ** (shift / 12);
-            const breakdown = bar % 8 === 4;
-            const leadStep = (idx + (part % 3) * 2) % 16;
+            const {idx, phase, section, root, melody, wave} = musicAt(state.genreIdx, state.step);
+            const breakdown = phase === 3;
+            chapter = section % chapters.length;
+            const beatSeconds = 60 / g.bpm;
 
             // Alle 8 Steps wechselt der DJ aktiv zwischen linkem Deck, Mixer und rechtem Deck
             if (idx % 8 === 0) {
@@ -453,7 +518,7 @@
                     const now = audioCtx.currentTime;
 
                     // 1. Kick-Drum
-                    if (g.kicks[idx] && (!breakdown || idx % 8 === 0)) {
+                    if (g.kicks[idx] && (!breakdown || idx === 0)) {
                         state.bassPulse = 1.0;
                         const osc = audioCtx.createOscillator();
                         const gain = audioCtx.createGain();
@@ -469,7 +534,7 @@
                     }
 
                     // 2. Snare / Clap
-                    if (g.snares[idx] && noiseBuffer) {
+                    if ((g.snares[idx] || (breakdown && idx >= 10 && idx % 2 === 0)) && noiseBuffer) {
                         state.snarePulse = 1.0;
                         const noise = audioCtx.createBufferSource();
                         noise.buffer = noiseBuffer;
@@ -505,7 +570,9 @@
                     }
 
                     // 4. Sub-Bass / 808
-                    const bFreq = breakdown ? 0 : g.bass[idx] * transpose;
+                    const bassStep = g.bass[idx];
+                    const bFreq = breakdown || !bassStep ? 0 :
+                        hz(root - 12 + (idx >= 12 ? 7 : idx === 6 ? 12 : 0));
                     if (bFreq > 0) {
                         const osc = audioCtx.createOscillator();
                         const filter = audioCtx.createBiquadFilter();
@@ -526,23 +593,26 @@
                         osc.stop(now + g.bassDecay);
                     }
 
-                    // 5. Genre-Lead Synth
-                    const lFreq = g.lead[leadStep] * transpose * (part === 3 && idx % 4 === 0 ? 2 : 1);
-                    if (lFreq > 0 && (Math.floor(state.step / 16) % 2 === 1 || state.genreIdx === 2)) {
-                        const osc = audioCtx.createOscillator();
-                        const filter = audioCtx.createBiquadFilter();
-                        filter.type = 'lowpass';
-                        filter.frequency.setValueAtTime(1100 + state.bassPulse * 1100, now);
-                        const gain = audioCtx.createGain();
-                        osc.connect(filter);
-                        filter.connect(gain);
-                        gain.connect(masterComp);
-                        osc.type = g.wave;
-                        osc.frequency.setValueAtTime(lFreq, now);
-                        gain.gain.setValueAtTime(0.15, now);
-                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
-                        osc.start(now);
-                        osc.stop(now + 0.19);
+                    // Short chord stabs alternate with sustained pads in the break.
+                    const chordHit = idx === 0 || (phase === 2 && idx === 10);
+                    if (chordHit) {
+                        const duration = beatSeconds * (breakdown ? 3.5 : state.genreIdx === 2 ? .8 : 1.8);
+                        const third = state.genreIdx === 2 && phase === 2 ? 4 : 3;
+                        for (const interval of [0, third, 7, 10]) {
+                            synthNote(root + 12 + interval, 'triangle', now, duration, .038, breakdown ? 940 : 1750);
+                        }
+                    }
+                    if (melody !== null && (!breakdown || idx < 8)) {
+                        const duration = beatSeconds * (state.genreIdx === 3 ? 1.1 : .49);
+                        synthNote(root + 12 + melody, wave, now, duration, .14,
+                            state.genreIdx === 0 ? 2100 : 1550);
+                        if (phase === 2) {
+                            synthNote(root + 12 + melody, 'sine', now + beatSeconds * .75, duration, .047, 1600);
+                        }
+                    }
+                    // Low octave accent on the downbeat after the drum fill.
+                    if (section > 0 && phase === 0 && idx === 0) {
+                        synthNote(root - 12, 'sine', now, beatSeconds * 1.7, .22, 210);
                     }
                 }
             } catch (e) {}
@@ -736,6 +806,44 @@
 
         const ROAD_EVENT_SECONDS = 8;
         const roadEvents = ['Gegenverkehr', 'Kreuzung', 'Neontunnel'];
+        const rideSeconds = ROAD_EVENT_SECONDS * roadEvents.length;
+        const arrivalSeconds = 5;
+        const roundSeconds = rideSeconds + arrivalSeconds;
+
+        function journeyAt(seconds) {
+            const elapsed = seconds % roundSeconds;
+            return {
+                elapsed,
+                lap: Math.floor(seconds / roundSeconds),
+                remaining: Math.max(0, Math.ceil(rideSeconds - elapsed)),
+                arrived: elapsed >= rideSeconds
+            };
+        }
+
+        function showArrival(w, h, mid, horizon, g, elapsed) {
+            const strength = Math.min(1, (elapsed - rideSeconds) * 1.7);
+            ctx.save();
+            ctx.globalAlpha = strength;
+            const halo = ctx.createRadialGradient(mid, horizon, 0, mid, horizon, w * .75);
+            halo.addColorStop(0, '#fff3c5d9');
+            halo.addColorStop(.22, g.color + 'c0');
+            halo.addColorStop(1, g.color + '00');
+            ctx.fillStyle = halo;
+            ctx.fillRect(0, 0, w, h);
+            ctx.globalCompositeOperation = 'screen';
+            for (let i = 0; i < 7; i++) {
+                const x = w * i / 6;
+                const sway = Math.sin(elapsed * 2 + i) * w * .13;
+                ctx.fillStyle = i % 2 ? g.secondary + '3f' : g.color + '55';
+                ctx.beginPath();
+                ctx.moveTo(mid, horizon);
+                ctx.lineTo(x + sway - w * .10, 0);
+                ctx.lineTo(x + sway + w * .10, 0);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+        }
         let roadSeconds = 0;
 
         function drawVehicle(x, y, size, body, lights, sideView = false) {
@@ -761,10 +869,10 @@
             ctx.restore();
         }
 
-        function drawRoadEvent(w, h, mid, horizon, genre) {
-            const eventNumber = Math.floor(roadSeconds / ROAD_EVENT_SECONDS);
+        function drawRoadEvent(w, h, mid, horizon, genre, journey) {
+            const eventNumber = Math.floor(journey.elapsed / ROAD_EVENT_SECONDS);
             const phase = eventNumber % roadEvents.length;
-            const progress = roadSeconds / ROAD_EVENT_SECONDS % 1;
+            const progress = journey.elapsed / ROAD_EVENT_SECONDS % 1;
             const depthY = h - horizon;
             if (phase === 0) {
                 for (let i = 0; i < 2; i++) {
@@ -786,7 +894,7 @@
                 for (let i = 0; i < 11; i++) {
                     ctx.fillRect(w * (.025 + i * .09), y - thickness * .54, w * .046, thickness * .09);
                 }
-                const fromLeft = (Math.floor(eventNumber / roadEvents.length) % 2) === 0;
+                const fromLeft = journey.lap % 2 === 0;
                 const crossing = -0.22 + 1.44 * Math.min(1, progress * 1.44);
                 drawVehicle(w * (fromLeft ? crossing : 1 - crossing), y - thickness * .2,
                     w * (.15 + depth * .25), '#ff9a50', '#ffe9a6', true);
@@ -880,9 +988,15 @@
                 ctx.strokeStyle = g.secondary + '80'; ctx.lineWidth = Math.max(1, distance * w / 300);
                 ctx.beginPath(); ctx.moveTo(mid - spread,y); ctx.lineTo(mid + spread,y); ctx.stroke();
             }
-            drawRoadEvent(w, h, mid, horizon, g);
-            const roadEvent = roadEvents[Math.floor(roadSeconds / ROAD_EVENT_SECONDS) % roadEvents.length];
-            if (roadStatus.textContent !== roadEvent) roadStatus.textContent = roadEvent;
+            const journey = journeyAt(roadSeconds);
+            if (journey.arrived) showArrival(w, h, mid, horizon, g, journey.elapsed);
+            else drawRoadEvent(w, h, mid, horizon, g, journey);
+            const arrivalText = journey.arrived ? 'Ziel erreicht · Lichtshow' : 'Nächster Halt in ' + journey.remaining + ' s';
+            if (arrivalLabel.textContent !== arrivalText) {
+                arrivalLabel.textContent = arrivalText;
+                arrivalLabel.toggleAttribute('data-arrived', journey.arrived);
+                arrivalProgress.value = rideSeconds - journey.remaining;
+            }
             if (state.bassPulse > .02) {
                 ctx.fillStyle = g.color + '20';
                 ctx.fillRect(0, horizon, w, h - horizon);
@@ -957,9 +1071,11 @@
                     (requests.length ? ' · ' + requests.length + ' wartet' : '')
                 : testMode ? 'Test bereit' : connected ? 'Wünsche offen' : 'TikFinity getrennt';
             if (requestStatus.textContent !== label) requestStatus.textContent = label;
-            const destination = active ? routes[active.genre] : chapters[chapter];
+            const journey = journeyAt(roadSeconds);
+            const destination = active ? routes[active.genre] : chapters[journey.lap % chapters.length];
             if (chapterTitle.textContent !== destination) chapterTitle.textContent = destination;
-            const routeLabel = active ? 'ZUSCHAUER-ROUTE' : 'HALT ' + String(chapter + 1).padStart(2, '0');
+            const routeLabel = active?.name ? 'ROUTE VON ' + active.name :
+                active ? 'ZUSCHAUER-ROUTE' : 'HALT ' + String(journey.lap + 1).padStart(2, '0');
             if (chapterNumber.textContent !== routeLabel) chapterNumber.textContent = routeLabel;
         }
 
@@ -980,15 +1096,15 @@
             return user ? 'handle:' + user : id ? 'id:' + id : '';
         }
 
-        function queueGift(genre, value) {
+        function queueGift(genre, value, name = '') {
             if (genre === undefined || !Number.isFinite(value) || value < 1) return;
             const seconds = Math.min(120, 14 + Math.floor(value));
-            requests.push({genre, seconds});
+            requests.push({genre, seconds, name});
             updateRequests();
         }
 
         function testGift(value) {
-            if (testMode) queueGift(choices.get('test'), value);
+            if (testMode) queueGift(choices.get('test'), value, '@Test');
         }
 
         function connectTikFinity() {
@@ -1034,7 +1150,9 @@
                     event.extendedGiftInfo?.diamond_count ?? event.extendedGiftInfo?.diamondCount ?? (rose ? 1 : NaN));
                 const count = Math.max(1, Math.floor(Number(event.repeatCount) || 1));
                 const genre = rose ? 0 : giftGenres.get(name) ?? choices.get(viewer);
-                queueGift(genre, value * count);
+                const handle = String(event.uniqueId ?? event.user?.uniqueId ?? '').trim();
+                const credit = /^[\p{L}\p{N}_.]{1,24}$/u.test(handle) ? '@' + handle : '';
+                queueGift(genre, value * count, credit);
             });
         }
 
