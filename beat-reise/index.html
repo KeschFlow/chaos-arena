@@ -162,6 +162,21 @@
             background: #07050e;
         }
 
+        #roadStatus {
+            position: absolute;
+            z-index: 2;
+            left: 7%;
+            top: 37%;
+            padding: .34em .7em;
+            border: 1px solid var(--accent);
+            border-radius: .45em;
+            background: #100b20dc;
+            color: #fff;
+            font-size: clamp(12px, 1.8dvh, 25px);
+            font-weight: 800;
+            pointer-events: none;
+        }
+
         canvas {
             display: block;
             width: 100%;
@@ -268,6 +283,7 @@
 
     <section id="stage" aria-label="Animierte Reise durch eine Neonstadt">
         <canvas id="djCanvas"></canvas>
+        <div id="roadStatus">Gegenverkehr</div>
         <div class="chapter">
             <span id="chapter-number"></span>
             <strong id="chapter-title">Nachtfahrt</strong>
@@ -292,6 +308,7 @@
     </div>
 
     <script>
+        const roadStatus = document.getElementById("roadStatus");
         const canvas = document.getElementById('djCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -717,13 +734,99 @@
             });
         }
 
+        const ROAD_EVENT_SECONDS = 8;
+        const roadEvents = ['Gegenverkehr', 'Kreuzung', 'Neontunnel'];
+        let roadSeconds = 0;
+
+        function drawVehicle(x, y, size, body, lights, sideView = false) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(size, size);
+            ctx.fillStyle = '#04050b';
+            ctx.fillRect(-.51, -.19, .18, .24);
+            ctx.fillRect(.33, -.19, .18, .24);
+            ctx.fillStyle = body;
+            ctx.beginPath();
+            ctx.moveTo(-.54, -.14); ctx.lineTo(-.54, -.38);
+            ctx.lineTo(-.34, -.65); ctx.lineTo(sideView ? -.07 : .34, -.65);
+            ctx.lineTo(sideView ? .18 : .5, -.39); ctx.lineTo(.54, -.34);
+            ctx.lineTo(.54, -.14); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#142033';
+            ctx.fillRect(-.26, -.58, sideView ? .28 : .52, .18);
+            ctx.fillStyle = lights;
+            ctx.shadowColor = lights;
+            ctx.shadowBlur = size * .23;
+            ctx.fillRect(-.46, -.32, .19, .11);
+            ctx.fillRect(.27, -.32, .19, .11);
+            ctx.restore();
+        }
+
+        function drawRoadEvent(w, h, mid, horizon, genre) {
+            const eventNumber = Math.floor(roadSeconds / ROAD_EVENT_SECONDS);
+            const phase = eventNumber % roadEvents.length;
+            const progress = roadSeconds / ROAD_EVENT_SECONDS % 1;
+            const depthY = h - horizon;
+            if (phase === 0) {
+                for (let i = 0; i < 2; i++) {
+                    const approach = progress * 1.5 + .24 - .49 * i;
+                    if (approach < 0 || approach > 1.12) continue;
+                    const depth = approach ** 2;
+                    const size = w * (.05 + .36 * depth);
+                    const x = mid - w * (.025 + depth * .26);
+                    drawVehicle(x, horizon + depthY * .89 * depth, size,
+                        i ? '#ae82ff' : '#49d7dd', '#fff4c3');
+                }
+            } else if (phase === 1) {
+                const depth = .23 + .68 * progress ** 1.6;
+                const y = horizon + depthY * depth;
+                const thickness = h * (.018 + .067 * depth);
+                ctx.fillStyle = '#111524';
+                ctx.fillRect(0, y - thickness, w, thickness);
+                ctx.fillStyle = '#ffc38c';
+                for (let i = 0; i < 11; i++) {
+                    ctx.fillRect(w * (.025 + i * .09), y - thickness * .54, w * .046, thickness * .09);
+                }
+                const fromLeft = (Math.floor(eventNumber / roadEvents.length) % 2) === 0;
+                const crossing = -0.22 + 1.44 * Math.min(1, progress * 1.44);
+                drawVehicle(w * (fromLeft ? crossing : 1 - crossing), y - thickness * .2,
+                    w * (.15 + depth * .25), '#ff9a50', '#ffe9a6', true);
+            } else {
+                // Near arches move past the camera while farther arches stay in view.
+                for (let i = 5; i >= 0; i--) {
+                    const approach = .26 + progress * 1.55 - i * .23;
+                    if (approach < 0 || approach > 1.42) continue;
+                    const depth = approach ** 2;
+                    const base = horizon + depthY * depth * .95;
+                    const radius = w * (.095 + .51 * depth);
+                    const top = base - h * (.12 + .62 * depth);
+                    ctx.lineJoin = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(mid - radius, base);
+                    ctx.lineTo(mid - radius, top + radius * .56);
+                    ctx.lineTo(mid - radius * .65, top);
+                    ctx.lineTo(mid + radius * .65, top);
+                    ctx.lineTo(mid + radius, top + radius * .56);
+                    ctx.lineTo(mid + radius, base);
+                    ctx.strokeStyle = '#181327';
+                    ctx.lineWidth = w * (.021 + .034 * depth);
+                    ctx.stroke();
+                    ctx.strokeStyle = i % 2 ? genre.secondary : genre.color;
+                    ctx.lineWidth = w * (.004 + .006 * depth);
+                    ctx.stroke();
+                }
+            }
+        }
+
         let travelled = 0;
         let lastFrame = 0;
         function renderScene(now = 0) {
             requestAnimationFrame(renderScene);
             const dt = lastFrame ? Math.min(50, now - lastFrame) : 0;
             lastFrame = now;
-            if (state.playing) travelled += dt * (.00024 + GENRES[state.genreIdx].bpm * .000002);
+            if (state.playing) {
+                travelled += dt * (.00024 + GENRES[state.genreIdx].bpm * .000002);
+                roadSeconds += dt / 1000;
+            }
             const w = canvas.width, h = canvas.height;
             if (!w || !h) return;
             const g = GENRES[state.genreIdx];
@@ -777,6 +880,9 @@
                 ctx.strokeStyle = g.secondary + '80'; ctx.lineWidth = Math.max(1, distance * w / 300);
                 ctx.beginPath(); ctx.moveTo(mid - spread,y); ctx.lineTo(mid + spread,y); ctx.stroke();
             }
+            drawRoadEvent(w, h, mid, horizon, g);
+            const roadEvent = roadEvents[Math.floor(roadSeconds / ROAD_EVENT_SECONDS) % roadEvents.length];
+            if (roadStatus.textContent !== roadEvent) roadStatus.textContent = roadEvent;
             if (state.bassPulse > .02) {
                 ctx.fillStyle = g.color + '20';
                 ctx.fillRect(0, horizon, w, h - horizon);
