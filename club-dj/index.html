@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CLUB-DJ LIVE</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            --accent: #e879f9;
+            --accent-sec: #22d3ee;
+            --bg-outer: #05040a;
+            --bg-stage: #090712;
+            --panel-bg: rgba(15, 11, 28, 0.86);
+            --border-subtle: rgba(255, 255, 255, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0 auto;
+            width: min(100vw, 56.25dvh);
+            height: 100dvh;
+            background: var(--bg-stage);
+            color: #ffffff;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.95);
+        }
+
+        html {
+            background: var(--bg-outer);
+        }
+
+        /* Minimaler, schwebender Top-Header über der Bühne */
+        header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 20;
+            padding: clamp(12px, 2.2dvh, 24px) clamp(14px, 3vw, 28px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            pointer-events: none;
+            background: linear-gradient(to bottom, rgba(5, 4, 12, 0.82) 0%, rgba(5, 4, 12, 0) 100%);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .live-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(225, 29, 72, 0.22);
+            border: 1px solid rgba(244, 63, 94, 0.65);
+            color: #fda4af;
+            font-size: clamp(11px, 1.5dvh, 16px);
+            font-weight: 800;
+            letter-spacing: 0.08em;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f43f5e;
+            box-shadow: 0 0 10px #f43f5e;
+            animation: pulseDot 1.4s infinite ease-in-out;
+        }
+
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.45; transform: scale(0.8); }
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(16px, 2.4dvh, 28px);
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .ws-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #52525b;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        .ws-indicator.connected {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        #bpmBadge {
+            padding: 5px 10px;
+            border-radius: 8px;
+            background: rgba(15, 12, 29, 0.78);
+            border: 1px solid var(--border-subtle);
+            color: var(--accent-sec);
+            font-size: clamp(12px, 1.6dvh, 18px);
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            backdrop-filter: blur(8px);
+        }
+
+        #playBtn {
+            padding: 7px 14px;
+            min-height: clamp(36px, 4.4dvh, 52px);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(28, 20, 48, 0.88);
+            color: #ffffff;
+            font-size: clamp(12px, 1.6dvh, 18px);
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: transform 0.1s, background 0.2s, border-color 0.2s;
+        }
+
+        #playBtn.active {
+            background: rgba(232, 121, 249, 0.22);
+            border-color: var(--accent);
+            color: #f5d0fe;
+        }
+
+        /* Maximale Bühne über den gesamten Screen */
+        #stage {
+            grid-row: 1 / 4;
+            grid-column: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #07050e;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Kompaktes, hochkontrastiges DJ-Dock am unteren Rand */
+        .dock {
+            grid-row: 3;
+            grid-column: 1;
+            z-index: 20;
+            padding: clamp(10px, 1.8dvh, 22px) clamp(12px, 2.8vw, 24px) clamp(14px, 2.4dvh, 28px);
+            background: linear-gradient(to top, rgba(5, 4, 12, 0.96) 55%, rgba(5, 4, 12, 0.72) 85%, rgba(5, 4, 12, 0) 100%);
+            display: flex;
+            flex-direction: column;
+            gap: clamp(8px, 1.2dvh, 14px);
+        }
+
+        .genres {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: clamp(6px, 1.4vw, 12px);
+        }
+
+        .effects {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: clamp(6px, 1.4vw, 12px);
+        }
+
+        .dock button {
+            min-height: clamp(46px, 5.6dvh, 68px);
+            padding: 6px 4px;
+            border-radius: 12px;
+            border: 1px solid var(--border-subtle);
+            background: var(--panel-bg);
+            color: #f4f4f5;
+            font-family: inherit;
+            font-size: clamp(12px, 1.75dvh, 20px);
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: transform 0.08s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .dock button:active {
+            transform: scale(0.95);
+        }
+
+        .genres button[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: #ffffff;
+            color: #090514;
+            box-shadow: 0 0 20px rgba(232, 121, 249, 0.45);
+        }
+
+        .effects button:nth-child(1) {
+            border-color: rgba(34, 211, 238, 0.4);
+            color: #a5f3fc;
+        }
+
+        .effects button:nth-child(2) {
+            border-color: rgba(250, 204, 21, 0.4);
+            color: #fef08a;
+        }
+
+        .effects button:active {
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        #gift-test:not([hidden]) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+        .vote-board { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:2px 8px;
+            color:#eee8fe; font-size:clamp(10px,1.35dvh,17px); }
+        #vote-status { font-weight:800; color:var(--accent); }
+        .genres button { position:relative; flex-direction:column; gap:1px; overflow:hidden; }
+        .gift-icon { display:grid; place-items:center; font:normal clamp(15px,2.5dvh,29px)/1 "Segoe UI Emoji",sans-serif; }
+        .gift-icon svg { display:block; width:1em; height:1em; }
+        .genres button span { position:relative; z-index:1; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">
+            <span class="live-pill"><span class="live-dot"></span>LIVE</span>
+            <h1>CLUB-DJ</h1>
+        </div>
+        <div class="header-controls">
+            <span id="wsDot" class="ws-indicator" title="TikFinity WebSocket Status"></span>
+            <span id="bpmBadge">142 BPM</span>
+            <button id="playBtn" type="button" onclick="togglePlay()">▶ PLAY</button>
+        </div>
+    </header>
+
+    <section id="stage" aria-label="Club-DJ Bühne">
+        <canvas id="djCanvas"></canvas>
+    </section>
+
+    <div class="dock">
+        <div class="vote-board">
+            <span id="vote-guide">Ein Geschenk wählt den Sound · höherer Wert, mehr Spielzeit</span>
+            <span id="vote-status" role="status">TikFinity getrennt</span>
+        </div>
+        <div class="genres" role="group" aria-label="Musikrichtung">
+            <button id="genre0" type="button" aria-pressed="true" onclick="pressGenre(0)" aria-label="TECHNO – Rose"><span>TECHNO</span><span class="gift-icon" aria-hidden="true">🌹</span></button>
+            <button id="genre1" type="button" aria-pressed="false" onclick="pressGenre(1)" aria-label="TRAP – Fingerherz"><span>TRAP</span><span class="gift-icon" aria-hidden="true">🫰</span></button>
+            <button id="genre2" type="button" aria-pressed="false" onclick="pressGenre(2)" aria-label="HOUSE – Donut"><span>HOUSE</span><span class="gift-icon" aria-hidden="true">🍩</span></button>
+            <button id="genre3" type="button" aria-pressed="false" onclick="pressGenre(3)" aria-label="CHILL – Parfüm"><span>CHILL</span><span class="gift-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><rect x="8.5" y="2.5" width="7" height="4.5" rx="1" fill="#e5b7ff"/><path d="M9 7h6v2H9z" fill="#b78ad1"/><rect x="4.5" y="9" width="15" height="12.5" rx="4" fill="#b566e3" stroke="#edcdff"/><rect x="8" y="13" width="8" height="5" rx="1" fill="#f4ddff"/></svg></span></button>
+        </div>
+        <div id="gift-test" hidden>
+            <button type="button" onclick="testGift(1)">Testgeschenk · 15 s</button>
+            <button type="button" onclick="testGift(30)">Testgeschenk · 44 s</button>
+        </div>
+        <div class="effects" role="group" aria-label="Live Effekte">
+            <button type="button" onclick="triggerEffect('drop')">💣 BASS-DROP</button>
+            <button type="button" onclick="triggerEffect('horn')">📣 AIRHORN</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('djCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 4 eigenständige Club-Genres mit individuellem Tempo, Rhythmus, Bassline, Lead & Lichtstimmung
+        const GENRES = [
+            {
+                name: 'TECHNO',
+                bpm: 142,
+                color: '#e879f9',      // Neon Magenta
+                secondary: '#22d3ee',  // Cyan Laser
+                ambient: '#1e0b36',
+                kicks:  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                hats:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1],
+                bass:   [41.2, 41.2, 55.0, 41.2, 41.2, 41.2, 61.7, 41.2, 41.2, 41.2, 55.0, 41.2, 49.0, 49.0, 65.4, 55.0],
+                lead:   [164.8, 0, 164.8, 196.0, 0, 164.8, 220.0, 0, 164.8, 0, 196.0, 246.9, 220.0, 0, 196.0, 0],
+                wave: 'sawtooth',
+                bassDecay: 0.22
+            },
+            {
+                name: 'TRAP',
+                bpm: 146,
+                color: '#facc15',      // Gold / Amber
+                secondary: '#ef4444',  // Crimson
+                ambient: '#291507',
+                kicks:  [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                hats:   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                bass:   [36.7, 0, 0, 36.7, 0, 0, 43.6, 0, 41.2, 0, 0, 41.2, 0, 0, 32.7, 0],
+                lead:   [293.6, 0, 329.6, 349.2, 0, 329.6, 293.6, 0, 261.6, 0, 293.6, 329.6, 0, 261.6, 220.0, 0],
+                wave: 'square',
+                bassDecay: 0.38
+            },
+            {
+                name: 'HOUSE',
+                bpm: 126,
+                color: '#10b981',      // Emerald Club Green
+                secondary: '#fbbf24',  // Warm Gold
+                ambient: '#06261e',
+                kicks:  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0],
+                hats:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+                bass:   [55.0, 0, 55.0, 65.4, 0, 55.0, 73.4, 0, 55.0, 0, 55.0, 82.4, 0, 73.4, 65.4, 0],
+                lead:   [220.0, 0, 261.6, 0, 329.6, 0, 293.6, 261.6, 220.0, 0, 392.0, 0, 329.6, 0, 293.6, 0],
+                wave: 'triangle',
+                bassDecay: 0.25
+            },
+            {
+                name: 'CHILL',
+                bpm: 90,
+                color: '#38bdf8',      // Sky Blue
+                secondary: '#f472b6',  // Soft Pink
+                ambient: '#0a1c30',
+                kicks:  [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
+                hats:   [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1],
+                bass:   [43.6, 43.6, 0, 43.6, 0, 43.6, 51.9, 0, 43.6, 43.6, 0, 49.0, 0, 43.6, 38.9, 0],
+                lead:   [349.2, 0, 415.3, 0, 349.2, 0, 523.2, 0, 466.1, 0, 415.3, 0, 349.2, 0, 311.1, 0],
+                wave: 'sine',
+                bassDecay: 0.34
+            }
+        ];
+
+        const state = {
+            playing: false,
+            genreIdx: 0,
+            step: 0,
+            bassPulse: 0,
+            snarePulse: 0,
+            discAngleL: 0,
+            discAngleR: 0,
+            activeDeck: 0, // 0 = links, 1 = rechts (wechselt periodisch)
+            handActionPhase: 0,
+            effectTimer: 0,
+            effectType: '',
+            confetti: [],
+            smoke: []
+        };
+
+        let audioCtx = null;
+        let masterComp = null;
+        let noiseBuffer = null;
+        let stepTimer = null;
+
+        function ensureAudio() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    audioCtx = new AudioContextClass();
+                    masterComp = audioCtx.createDynamicsCompressor();
+                    masterComp.threshold.value = -12;
+                    masterComp.knee.value = 16;
+                    masterComp.ratio.value = 6;
+                    masterComp.attack.value = 0.004;
+                    masterComp.release.value = 0.14;
+                    masterComp.connect(audioCtx.destination);
+
+                    const bufSize = audioCtx.sampleRate * 0.5;
+                    noiseBuffer = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+                    const data = noiseBuffer.getChannelData(0);
+                    for (let i = 0; i < bufSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
+        }
+
+        function playBeatStep() {
+            if (!state.playing) return;
+            const g = GENRES[state.genreIdx];
+            const idx = state.step % 16;
+
+            // Alle 8 Steps wechselt der DJ aktiv zwischen linkem Deck, Mixer und rechtem Deck
+            if (idx % 8 === 0) {
+                state.activeDeck = (state.activeDeck + 1) % 2;
+            }
+
+            try {
+                ensureAudio();
+                if (audioCtx && masterComp) {
+                    const now = audioCtx.currentTime;
+
+                    // 1. Kick-Drum
+                    if (g.kicks[idx]) {
+                        state.bassPulse = 1.0;
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.connect(gain);
+                        gain.connect(masterComp);
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(state.genreIdx === 1 ? 145 : 170, now);
+                        osc.frequency.exponentialRampToValueAtTime(32, now + 0.18);
+                        gain.gain.setValueAtTime(0.75, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.23);
+                        osc.start(now);
+                        osc.stop(now + 0.23);
+                    }
+
+                    // 2. Snare / Clap
+                    if (g.snares[idx] && noiseBuffer) {
+                        state.snarePulse = 1.0;
+                        const noise = audioCtx.createBufferSource();
+                        noise.buffer = noiseBuffer;
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'bandpass';
+                        filter.frequency.setValueAtTime(state.genreIdx === 2 ? 1800 : 1350, now);
+                        const gain = audioCtx.createGain();
+                        noise.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(masterComp);
+                        gain.gain.setValueAtTime(0.36, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                        noise.start(now);
+                        noise.stop(now + 0.15);
+                    }
+
+                    // 3. Hi-Hat
+                    if (g.hats[idx] && noiseBuffer) {
+                        const noise = audioCtx.createBufferSource();
+                        noise.buffer = noiseBuffer;
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'highpass';
+                        filter.frequency.setValueAtTime(7800, now);
+                        const gain = audioCtx.createGain();
+                        noise.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(masterComp);
+                        const vol = (state.genreIdx === 1 && idx % 2 === 1) ? 0.12 : 0.15;
+                        gain.gain.setValueAtTime(vol, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+                        noise.start(now);
+                        noise.stop(now + 0.045);
+                    }
+
+                    // 4. Sub-Bass / 808
+                    const bFreq = g.bass[idx];
+                    if (bFreq > 0) {
+                        const osc = audioCtx.createOscillator();
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(state.genreIdx === 0 ? 260 : 190, now);
+                        const gain = audioCtx.createGain();
+                        osc.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(masterComp);
+                        osc.type = state.genreIdx === 1 ? 'sine' : 'sawtooth';
+                        osc.frequency.setValueAtTime(bFreq, now);
+                        if (state.genreIdx === 1) {
+                            osc.frequency.exponentialRampToValueAtTime(bFreq * 0.92, now + g.bassDecay);
+                        }
+                        gain.gain.setValueAtTime(0.48, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + g.bassDecay);
+                        osc.start(now);
+                        osc.stop(now + g.bassDecay);
+                    }
+
+                    // 5. Genre-Lead Synth
+                    const lFreq = g.lead[idx];
+                    if (lFreq > 0 && (Math.floor(state.step / 16) % 2 === 1 || state.genreIdx === 2)) {
+                        const osc = audioCtx.createOscillator();
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(1100 + state.bassPulse * 1100, now);
+                        const gain = audioCtx.createGain();
+                        osc.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(masterComp);
+                        osc.type = g.wave;
+                        osc.frequency.setValueAtTime(lFreq, now);
+                        gain.gain.setValueAtTime(0.15, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+                        osc.start(now);
+                        osc.stop(now + 0.19);
+                    }
+                }
+            } catch (e) {}
+
+            state.step++;
+        }
+
+        function startSequencer() {
+            clearInterval(stepTimer);
+            const g = GENRES[state.genreIdx];
+            const intervalMs = (60 / g.bpm / 4) * 1000;
+            state.step = 0;
+            playBeatStep();
+            stepTimer = setInterval(playBeatStep, intervalMs);
+        }
+
+        function updateThemeColors() {
+            const g = GENRES[state.genreIdx];
+            document.documentElement.style.setProperty('--accent', g.color);
+            document.documentElement.style.setProperty('--accent-sec', g.secondary);
+            document.getElementById('bpmBadge').textContent = `${g.bpm} BPM`;
+        }
+
+        function togglePlay() {
+            ensureAudio();
+            state.playing = !state.playing;
+            updateRequests();
+            const btn = document.getElementById('playBtn');
+
+            if (state.playing) {
+                btn.textContent = '⏸ PAUSE';
+                btn.classList.add('active');
+                startSequencer();
+            } else {
+                btn.textContent = '▶ PLAY';
+                btn.classList.remove('active');
+                clearInterval(stepTimer);
+            }
+        }
+
+        function selectGenre(idx) {
+            state.genreIdx = idx;
+            updateThemeColors();
+
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById(`genre${i}`);
+                btn.setAttribute('aria-pressed', String(i === idx));
+            }
+
+            if (!state.playing) {
+                togglePlay();
+            } else {
+                startSequencer();
+            }
+        }
+
+        function triggerEffect(type) {
+            if (!state.playing) togglePlay();
+            ensureAudio();
+
+            state.effectType = type;
+            state.effectTimer = 90;
+            state.bassPulse = 1.7;
+
+            const w = canvas.width || 540;
+            const h = canvas.height || 960;
+            const particleCount = type === 'rose' ? 65 : 30;
+            const colors = type === 'rose'
+                ? ['#f43f5e', '#fb7185', '#fda4af', '#facc15', '#ffffff']
+                : ['#e879f9', '#22d3ee', '#facc15', '#ffffff'];
+
+            for (let i = 0; i < particleCount; i++) {
+                state.confetti.push({
+                    x: w * 0.15 + Math.random() * (w * 0.7),
+                    y: h * 0.25 + (Math.random() - 0.5) * 120,
+                    vx: (Math.random() - 0.5) * 9,
+                    vy: -3 - Math.random() * 7,
+                    gravity: 0.18 + Math.random() * 0.1,
+                    color: colors[i % colors.length],
+                    size: 5 + Math.random() * 6,
+                    isRose: type === 'rose' && i % 4 === 0
+                });
+            }
+
+            try {
+                if (audioCtx && masterComp) {
+                    const now = audioCtx.currentTime;
+
+                    if (type === 'horn') {
+                        // Dreifaches Club-Airhorn
+                        [0, 0.14, 0.28].forEach((offset, idx) => {
+                            const dur = idx === 2 ? 0.36 : 0.11;
+                            const osc1 = audioCtx.createOscillator();
+                            const osc2 = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            osc1.type = 'sawtooth';
+                            osc2.type = 'sawtooth';
+                            osc1.frequency.setValueAtTime(466.16, now + offset);
+                            osc2.frequency.setValueAtTime(587.33, now + offset);
+                            osc1.connect(gain);
+                            osc2.connect(gain);
+                            gain.connect(masterComp);
+                            gain.gain.setValueAtTime(0.24, now + offset);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + offset + dur);
+                            osc1.start(now + offset);
+                            osc2.start(now + offset);
+                            osc1.stop(now + offset + dur);
+                            osc2.stop(now + offset + dur);
+                        });
+                    } else if (type === 'drop') {
+                        // Massiver Sub-Bass Impact + Riser-Release
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(160, now);
+                        osc.frequency.exponentialRampToValueAtTime(26, now + 0.85);
+                        osc.connect(gain);
+                        gain.connect(masterComp);
+                        gain.gain.setValueAtTime(0.85, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+                        osc.start(now);
+                        osc.stop(now + 0.9);
+
+                        if (noiseBuffer) {
+                            const noise = audioCtx.createBufferSource();
+                            noise.buffer = noiseBuffer;
+                            const filter = audioCtx.createBiquadFilter();
+                            filter.type = 'lowpass';
+                            filter.frequency.setValueAtTime(2400, now);
+                            filter.frequency.exponentialRampToValueAtTime(120, now + 0.65);
+                            const nGain = audioCtx.createGain();
+                            noise.connect(filter);
+                            filter.connect(nGain);
+                            nGain.connect(masterComp);
+                            nGain.gain.setValueAtTime(0.45, now);
+                            nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+                            noise.start(now);
+                            noise.stop(now + 0.65);
+                        }
+                    } else if (type === 'rose') {
+                        // Euphorischer Rose-Fanfare + Sub-Drop
+                        const notes = [523.25, 659.25, 783.99, 1046.5];
+                        notes.forEach((freq, i) => {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.setValueAtTime(freq, now + i * 0.07);
+                            osc.connect(gain);
+                            gain.connect(masterComp);
+                            gain.gain.setValueAtTime(0.28, now + i * 0.07);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.45);
+                            osc.start(now + i * 0.07);
+                            osc.stop(now + i * 0.07 + 0.45);
+                        });
+                        const sub = audioCtx.createOscillator();
+                        const subGain = audioCtx.createGain();
+                        sub.type = 'sine';
+                        sub.frequency.setValueAtTime(130, now + 0.21);
+                        sub.frequency.exponentialRampToValueAtTime(30, now + 0.85);
+                        sub.connect(subGain);
+                        subGain.connect(masterComp);
+                        subGain.gain.setValueAtTime(0.75, now + 0.21);
+                        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+                        sub.start(now + 0.21);
+                        sub.stop(now + 0.85);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+            canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        updateThemeColors();
+
+        // Nebel-Partikel initialisieren für Club-Atmosphäre
+        for (let i = 0; i < 14; i++) {
+            state.smoke.push({
+                x: Math.random(),
+                y: 0.2 + Math.random() * 0.55,
+                r: 0.14 + Math.random() * 0.18,
+                speed: (Math.random() - 0.5) * 0.0006,
+                alpha: 0.03 + Math.random() * 0.04
+            });
+        }
+
+        function renderScene() {
+            requestAnimationFrame(renderScene);
+
+            const w = canvas.width;
+            const h = canvas.height;
+            const cx = w * 0.5;
+            const g = GENRES[state.genreIdx];
+            const t = performance.now() * 0.001;
+            const beatFreq = (g.bpm / 60) * Math.PI;
+
+            state.bassPulse *= 0.88;
+            state.snarePulse *= 0.84;
+            if (state.playing) {
+                state.discAngleL += 0.055 + state.bassPulse * 0.04;
+                state.discAngleR -= 0.055 + state.bassPulse * 0.04;
+            }
+            if (state.effectTimer > 0) state.effectTimer--;
+
+            // 1. Tiefer Club-Hintergrund mit räumlichem Farbverlauf
+            const bgGrad = ctx.createRadialGradient(cx, h * 0.34, w * 0.05, cx, h * 0.45, h * 0.85);
+            bgGrad.addColorStop(0, g.ambient);
+            bgGrad.addColorStop(0.55, '#090714');
+            bgGrad.addColorStop(1, '#030208');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Effekt-Flash bei Drop oder Rose
+            if (state.effectTimer > 0) {
+                const flashAlpha = (state.effectTimer / 90) * 0.22;
+                ctx.fillStyle = state.effectType === 'rose'
+                    ? `rgba(244, 63, 94, ${flashAlpha})`
+                    : `rgba(255, 255, 255, ${flashAlpha * 0.7})`;
+                ctx.fillRect(0, 0, w, h);
+            }
+
+            // 2. Bühnen-Traverse & Moving-Head Scheinwerfer (Tiefe & Lichtkegel)
+            const trussY = h * 0.085;
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = Math.max(2, w * 0.004);
+            ctx.beginPath();
+            ctx.moveTo(w * 0.06, trussY);
+            ctx.lineTo(w * 0.94, trussY);
+            ctx.stroke();
+
+            // 5 dynamische Lichtkegel aus der Decke
+            for (let i = -2; i <= 2; i++) {
+                const originX = cx + i * (w * 0.19);
+                const sway = state.playing ? Math.sin(t * 1.8 + i * 1.1) * 0.38 : i * 0.12;
+                ctx.save();
+                ctx.translate(originX, trussY);
+                ctx.rotate(sway);
+
+                const beamLen = h * 0.76;
+                const beamSpread = w * 0.16;
+                const beamGrad = ctx.createLinearGradient(0, 0, 0, beamLen);
+                const beamColor = i % 2 === 0 ? g.color : g.secondary;
+                beamGrad.addColorStop(0, beamColor);
+                beamGrad.addColorStop(1, 'transparent');
+
+                ctx.globalAlpha = (state.playing ? 0.16 : 0.08) + state.bassPulse * 0.16;
+                ctx.fillStyle = beamGrad;
+                ctx.beginPath();
+                ctx.moveTo(-w * 0.012, 0);
+                ctx.lineTo(w * 0.012, 0);
+                ctx.lineTo(beamSpread, beamLen);
+                ctx.lineTo(-beamSpread, beamLen);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+            ctx.globalAlpha = 1;
+
+            // 3. LED-Rückwand & Großer Bass-Halo hinter dem DJ
+            const djCenterY = h * 0.40;
+            const haloRadius = w * (0.28 + state.bassPulse * 0.07);
+            const haloGrad = ctx.createRadialGradient(cx, djCenterY, w * 0.02, cx, djCenterY, haloRadius);
+            haloGrad.addColorStop(0, g.color);
+            haloGrad.addColorStop(0.5, g.secondary);
+            haloGrad.addColorStop(1, 'transparent');
+            ctx.globalAlpha = 0.25 + state.bassPulse * 0.28;
+            ctx.fillStyle = haloGrad;
+            ctx.beginPath();
+            ctx.arc(cx, djCenterY, haloRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+
+            // LED-Equalizer-Säulen im Hintergrund links & rechts vom DJ
+            const barCols = 10;
+            for (let b = 0; b < barCols; b++) {
+                const side = b < 5 ? -1 : 1;
+                const idx = b % 5;
+                const bx = cx + side * (w * 0.23 + idx * w * 0.045);
+                const maxBarH = h * 0.24;
+                const level = state.playing
+                    ? 0.22 + Math.abs(Math.sin(t * 7 + b * 0.9)) * 0.5 + state.bassPulse * 0.35
+                    : 0.12;
+                const bh = maxBarH * Math.min(1, level);
+                const by = h * 0.56 - bh;
+
+                ctx.fillStyle = idx % 2 === 0 ? g.color : g.secondary;
+                ctx.globalAlpha = 0.32;
+                ctx.beginPath();
+                ctx.roundRect(bx - w * 0.012, by, w * 0.024, bh, 4);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            // 4. Club-Nebelschwaden für räumliche Tiefe
+            state.smoke.forEach(s => {
+                s.x += s.speed;
+                if (s.x < -0.2) s.x = 1.2;
+                if (s.x > 1.2) s.x = -0.2;
+                const sx = s.x * w;
+                const sy = s.y * h;
+                const sr = s.r * w;
+                const sGrad = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+                sGrad.addColorStop(0, `rgba(255, 255, 255, ${s.alpha})`);
+                sGrad.addColorStop(1, 'transparent');
+                ctx.fillStyle = sGrad;
+                ctx.fillRect(sx - sr, sy - sr, sr * 2, sr * 2);
+            });
+
+            // 5. Große PA-Lautsprecher-Türme links & rechts im Mittelgrund
+            const speakerW = w * 0.14;
+            const speakerH = h * 0.32;
+            const speakerY = h * 0.34;
+            [w * 0.03, w - w * 0.03 - speakerW].forEach(sx => {
+                // Gehäuse mit Schatten
+                ctx.fillStyle = '#0e0c18';
+                ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(sx, speakerY, speakerW, speakerH, 12);
+                ctx.fill();
+                ctx.stroke();
+
+                // Zwei große Tieftöner pro Turm
+                [0.28, 0.72].forEach(ratio => {
+                    const wy = speakerY + speakerH * ratio;
+                    const wx = sx + speakerW * 0.5;
+                    const baseR = speakerW * 0.35;
+                    const pulseR = baseR + state.bassPulse * (speakerW * 0.08);
+
+                    ctx.beginPath();
+                    ctx.arc(wx, wy, pulseR, 0, Math.PI * 2);
+                    ctx.fillStyle = '#05040a';
+                    ctx.fill();
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = g.color;
+                    ctx.stroke();
+
+                    // Kalotte in der Mitte
+                    ctx.beginPath();
+                    ctx.arc(wx, wy, pulseR * 0.36, 0, Math.PI * 2);
+                    ctx.fillStyle = '#181526';
+                    ctx.fill();
+                });
+            });
+
+            // 6. DER HAUPT-DJ (Groß, zentral, detailliert mit Kopfhörern & Takt-Animation)
+            const nod = state.playing
+                ? Math.sin(t * beatFreq * 2) * (h * 0.011) + state.bassPulse * (h * 0.012)
+                : Math.sin(t * 2) * (h * 0.003);
+            const bodySway = state.playing ? Math.sin(t * beatFreq) * (w * 0.016) : 0;
+
+            const djHeadX = cx + bodySway;
+            const djHeadY = h * 0.345 + nod;
+            const headR = w * 0.092;
+
+            // Torso / Club-Jacke
+            const torsoTopY = djHeadY + headR * 0.95;
+            const deskTopY = h * 0.555;
+            const shoulderW = w * 0.25;
+
+            const jacketGrad = ctx.createLinearGradient(cx - shoulderW, torsoTopY, cx + shoulderW, deskTopY);
+            jacketGrad.addColorStop(0, '#1e1b4b');
+            jacketGrad.addColorStop(0.5, '#13112b');
+            jacketGrad.addColorStop(1, '#0b091a');
+
+            ctx.fillStyle = jacketGrad;
+            ctx.beginPath();
+            ctx.moveTo(djHeadX - shoulderW, deskTopY + 10);
+            ctx.quadraticCurveTo(djHeadX - shoulderW * 0.95, torsoTopY, djHeadX - headR * 0.55, torsoTopY);
+            ctx.lineTo(djHeadX + headR * 0.55, torsoTopY);
+            ctx.quadraticCurveTo(djHeadX + shoulderW * 0.95, torsoTopY, djHeadX + shoulderW, deskTopY + 10);
+            ctx.closePath();
+            ctx.fill();
+
+            // Neon-Kragen & Reißverschluss-Akzent
+            ctx.strokeStyle = g.color;
+            ctx.lineWidth = Math.max(2.5, w * 0.005);
+            ctx.beginPath();
+            ctx.moveTo(djHeadX - headR * 0.45, torsoTopY + 4);
+            ctx.lineTo(djHeadX, torsoTopY + h * 0.055);
+            ctx.lineTo(djHeadX + headR * 0.45, torsoTopY + 4);
+            ctx.stroke();
+
+            // Hals & Schatten
+            ctx.fillStyle = '#8d553e';
+            ctx.fillRect(djHeadX - headR * 0.28, djHeadY + headR * 0.7, headR * 0.56, headR * 0.45);
+
+            // Kopf (stilisiertes Gesicht mit Lichtkante)
+            const faceGrad = ctx.createLinearGradient(djHeadX - headR, djHeadY - headR, djHeadX + headR, djHeadY + headR);
+            faceGrad.addColorStop(0, '#eab08a');
+            faceGrad.addColorStop(0.65, '#c68263');
+            faceGrad.addColorStop(1, '#7c4438');
+
+            ctx.fillStyle = faceGrad;
+            ctx.beginPath();
+            ctx.ellipse(djHeadX, djHeadY, headR * 0.86, headR, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rim-Light am Kopf durch Bühnenlicht
+            ctx.strokeStyle = g.secondary;
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Stylische Frisur / Cap-Silhouette
+            ctx.fillStyle = '#0f0c1d';
+            ctx.beginPath();
+            ctx.ellipse(djHeadX, djHeadY - headR * 0.68, headR * 0.9, headR * 0.46, -0.06, Math.PI * 0.95, Math.PI * 2.05);
+            ctx.fill();
+
+            // Leuchtende futuristische DJ-Visor-Brille
+            ctx.save();
+            ctx.shadowColor = g.secondary;
+            ctx.shadowBlur = 18;
+            ctx.fillStyle = g.secondary;
+            const visorW = headR * 1.38;
+            const visorH = headR * 0.30;
+            ctx.beginPath();
+            ctx.roundRect(djHeadX - visorW * 0.5, djHeadY - headR * 0.16, visorW, visorH, 8);
+            ctx.fill();
+
+            // Glanzstreifen auf dem Visor
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+            ctx.fillRect(djHeadX - visorW * 0.38, djHeadY - headR * 0.10, visorW * 0.28, visorH * 0.25);
+            ctx.restore();
+
+            // Entspannter, fokussierter Mund (reagiert bei Drop/Rose)
+            ctx.strokeStyle = '#4a251d';
+            ctx.lineWidth = Math.max(2.5, w * 0.004);
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            if (state.effectTimer > 25) {
+                // Jubel-Mund bei Drop/Rose
+                ctx.arc(djHeadX, djHeadY + headR * 0.45, headR * 0.18, 0, Math.PI);
+            } else {
+                ctx.moveTo(djHeadX - headR * 0.2, djHeadY + headR * 0.48);
+                ctx.quadraticCurveTo(djHeadX, djHeadY + headR * 0.55, djHeadX + headR * 0.2, djHeadY + headR * 0.48);
+            }
+            ctx.stroke();
+
+            // Große Studio-Kopfhörer (Bügel + Ohrmuscheln + LED-Ringe)
+            ctx.strokeStyle = '#18181b';
+            ctx.lineWidth = headR * 0.22;
+            ctx.beginPath();
+            ctx.arc(djHeadX, djHeadY - headR * 0.05, headR * 1.04, Math.PI * 1.05, Math.PI * 1.95);
+            ctx.stroke();
+
+            ctx.strokeStyle = g.color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(djHeadX, djHeadY - headR * 0.05, headR * 1.12, Math.PI * 1.12, Math.PI * 1.88);
+            ctx.stroke();
+
+            [-1, 1].forEach(side => {
+                const cupX = djHeadX + side * (headR * 0.96);
+                const cupY = djHeadY - headR * 0.02;
+                ctx.fillStyle = '#141320';
+                ctx.strokeStyle = g.color;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(cupX - headR * 0.18, cupY - headR * 0.36, headR * 0.36, headR * 0.72, 12);
+                ctx.fill();
+                ctx.stroke();
+            });
+
+            // 7. DAS DJ-PULT (Zwei große Turntables + Zentraler Club-Mixer)
+            const deskW = w * 0.86;
+            const deskH = h * 0.23;
+            const deskX = cx - deskW * 0.5;
+
+            // Pult-Körper mit Tiefe
+            const deskGrad = ctx.createLinearGradient(0, deskTopY, 0, deskTopY + deskH);
+            deskGrad.addColorStop(0, '#181629');
+            deskGrad.addColorStop(0.25, '#0f0d1c');
+            deskGrad.addColorStop(1, '#06050d');
+
+            ctx.fillStyle = deskGrad;
+            ctx.beginPath();
+            ctx.roundRect(deskX, deskTopY, deskW, deskH, 16);
+            ctx.fill();
+
+            // Leuchtende Neon-Kante vorne am Pult
+            ctx.strokeStyle = g.color;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // LED-Front-Lichtleiste am DJ-Tisch
+            ctx.save();
+            ctx.shadowColor = g.color;
+            ctx.shadowBlur = 16;
+            ctx.fillStyle = g.color;
+            ctx.fillRect(deskX + 18, deskTopY + deskH * 0.78, deskW - 36, 5);
+            ctx.restore();
+
+            // Zwei große Plattenteller (Links & Rechts)
+            const deckOffset = deskW * 0.31;
+            const deckY = deskTopY + deskH * 0.38;
+            const platterR = Math.min(deskW * 0.155, deskH * 0.33);
+
+            const deckCenters = [cx - deckOffset, cx + deckOffset];
+            deckCenters.forEach((dx, idx) => {
+                // Plattenteller-Basis
+                ctx.beginPath();
+                ctx.arc(dx, deckY, platterR * 1.08, 0, Math.PI * 2);
+                ctx.fillStyle = '#090812';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx.stroke();
+
+                // Drehende Vinyl-Schallplatte
+                ctx.save();
+                ctx.translate(dx, deckY);
+                ctx.rotate(idx === 0 ? state.discAngleL : state.discAngleR);
+
+                ctx.beginPath();
+                ctx.arc(0, 0, platterR, 0, Math.PI * 2);
+                ctx.fillStyle = '#07070c';
+                ctx.fill();
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = idx === 0 ? g.color : g.secondary;
+                ctx.stroke();
+
+                // Vinyl-Rillen
+                ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(0, 0, platterR * 0.72, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Weißer Scratch-Marker
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(platterR * 0.32, 0);
+                ctx.lineTo(platterR * 0.92, 0);
+                ctx.stroke();
+
+                // Platten-Label
+                ctx.beginPath();
+                ctx.arc(0, 0, platterR * 0.30, 0, Math.PI * 2);
+                ctx.fillStyle = idx === 0 ? g.color : g.secondary;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(0, 0, platterR * 0.08, 0, Math.PI * 2);
+                ctx.fillStyle = '#090812';
+                ctx.fill();
+
+                ctx.restore();
+            });
+
+            // Zentraler Club-Mixer zwischen den Decks
+            const mixerW = deskW * 0.24;
+            const mixerH = deskH * 0.64;
+            const mixerX = cx - mixerW * 0.5;
+            const mixerY = deskTopY + deskH * 0.08;
+
+            ctx.fillStyle = '#121022';
+            ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(mixerX, mixerY, mixerW, mixerH, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            // Level-Meter & Fader am Mixer
+            const faderCount = 4;
+            for (let f = 0; f < faderCount; f++) {
+                const fx = mixerX + (mixerW / (faderCount + 1)) * (f + 1);
+                const fTop = mixerY + mixerH * 0.16;
+                const fBot = mixerY + mixerH * 0.74;
+
+                ctx.strokeStyle = '#27243d';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(fx, fTop);
+                ctx.lineTo(fx, fBot);
+                ctx.stroke();
+
+                const knobPos = state.playing
+                    ? 0.3 + Math.abs(Math.sin(t * 4 + f * 1.7)) * 0.5
+                    : 0.5;
+                const ky = fTop + (fBot - fTop) * knobPos;
+                ctx.fillStyle = f % 2 === 0 ? g.color : g.secondary;
+                ctx.fillRect(fx - 6, ky - 3, 12, 6);
+            }
+
+            // Crossfader unten am Mixer
+            const cfY = mixerY + mixerH * 0.87;
+            ctx.strokeStyle = '#3f3b5c';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(mixerX + mixerW * 0.2, cfY);
+            ctx.lineTo(mixerX + mixerW * 0.8, cfY);
+            ctx.stroke();
+
+            const cfShift = state.playing ? Math.sin(t * 2.5) * (mixerW * 0.22) : 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(cx + cfShift - 5, cfY - 6, 10, 12);
+
+            // 8. ARME & HÄNDE DES DJs (Greifen abwechselnd an Plattenteller und Mixer!)
+            [-1, 1].forEach((side, idx) => {
+                const isDeckHand = state.activeDeck === idx;
+                const shoulderX = djHeadX + side * (shoulderW * 0.82);
+                const shoulderY = torsoTopY + h * 0.045;
+
+                let targetX, targetY;
+                if (!state.playing) {
+                    targetX = deckCenters[idx];
+                    targetY = deckY;
+                } else if (isDeckHand) {
+                    // Diese Hand scratcht / steuert aktiv den Plattenteller
+                    const scratch = Math.sin(t * beatFreq * 2) * (platterR * 0.24);
+                    targetX = deckCenters[idx] + scratch;
+                    targetY = deckY + Math.cos(t * beatFreq * 2) * (platterR * 0.12);
+                } else {
+                    // Die andere Hand bedient aktiv Fader & EQ am Mixer
+                    const mixMove = Math.sin(t * beatFreq * 1.5) * (mixerW * 0.22);
+                    targetX = cx + side * (mixerW * 0.22) + mixMove;
+                    targetY = mixerY + mixerH * 0.45 + Math.cos(t * beatFreq) * 8;
+                }
+
+                // Bei Rose- oder Drop-Effekt reißt der DJ kurz eine Hand hoch!
+                if (state.effectTimer > 55 && idx === 1) {
+                    targetX = djHeadX + shoulderW * 1.05;
+                    targetY = djHeadY - headR * 0.55;
+                }
+
+                const elbowX = shoulderX + side * (w * 0.06);
+                const elbowY = (shoulderY + targetY) * 0.52 + h * 0.02;
+
+                // Ärmel
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = '#252152';
+                ctx.lineWidth = Math.max(14, w * 0.036);
+                ctx.beginPath();
+                ctx.moveTo(shoulderX, shoulderY);
+                ctx.quadraticCurveTo(elbowX, elbowY, targetX, targetY);
+                ctx.stroke();
+
+                // Neon-Bündchen
+                ctx.strokeStyle = g.color;
+                ctx.lineWidth = Math.max(15, w * 0.038);
+                ctx.beginPath();
+                ctx.moveTo(targetX - side * 4, targetY - 2);
+                ctx.lineTo(targetX, targetY);
+                ctx.stroke();
+
+                // Hand
+                ctx.fillStyle = '#dba07c';
+                ctx.beginPath();
+                ctx.ellipse(targetX, targetY, w * 0.022, w * 0.015, side * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // 9. Pyrotechnik / CO2-Jets vor der Bühne bei Drop & Rose
+            if (state.effectTimer > 15 && (state.effectType === 'drop' || state.effectType === 'rose')) {
+                const intensity = (state.effectTimer - 15) / 75;
+                [cx - deskW * 0.36, cx + deskW * 0.36].forEach(fx => {
+                    const jetH = h * 0.16 * intensity + Math.sin(t * 45) * 14;
+                    const jetGrad = ctx.createLinearGradient(fx, deskTopY, fx, deskTopY - jetH);
+                    if (state.effectType === 'rose') {
+                        jetGrad.addColorStop(0, '#f43f5e');
+                        jetGrad.addColorStop(0.55, '#fb7185');
+                    } else {
+                        jetGrad.addColorStop(0, '#22d3ee');
+                        jetGrad.addColorStop(0.55, '#e879f9');
+                    }
+                    jetGrad.addColorStop(1, 'transparent');
+
+                    ctx.fillStyle = jetGrad;
+                    ctx.beginPath();
+                    ctx.moveTo(fx - w * 0.025, deskTopY);
+                    ctx.lineTo(fx, deskTopY - jetH);
+                    ctx.lineTo(fx + w * 0.025, deskTopY);
+                    ctx.closePath();
+                    ctx.fill();
+                });
+            }
+
+            // 10. Konfetti / Rosenblätter Partikel
+            for (let i = state.confetti.length - 1; i >= 0; i--) {
+                const p = state.confetti[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += p.gravity;
+                if (p.y > h) {
+                    state.confetti.splice(i, 1);
+                    continue;
+                }
+                ctx.fillStyle = p.color;
+                if (p.isRose) {
+                    ctx.beginPath();
+                    ctx.ellipse(p.x, p.y, p.size * 0.8, p.size * 0.5, p.x * 0.05, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(p.x, p.y, p.size, p.size * 0.65);
+                }
+            }
+        }
+
+        renderScene();
+
+
+
+        const wsDot = document.getElementById('wsDot');
+        const requestStatus = document.getElementById('vote-status');
+        const requestGuide = document.getElementById('vote-guide');
+        const genreLabels = ['TECHNO', 'TRAP', 'HOUSE', 'CHILL'];
+        const choices = new Map();
+        const giftGenres = new Map([
+            ['rose', 0], ['finger heart', 1], ['fingerherz', 1],
+            ['doughnut', 2], ['donut', 2], ['perfume', 3], ['parfüm', 3], ['parfum', 3]
+        ]);
+        const giftIds = new Set();
+        const requests = [];
+        const testMode = location.hash === '#test' || location.hash === '#vote-test';
+        let connected = false;
+        let active = null;
+        let endAt = 0;
+        let pausedAt = null;
+        let backgroundGenre = state.genreIdx;
+
+        if (testMode) {
+            requestGuide.textContent = 'Test: Genre wählen und Testgeschenk anklicken';
+            document.getElementById('gift-test').hidden = false;
+        }
+
+        function updateRequests() {
+            const now = performance.now();
+            if (!state.playing) {
+                if (active && pausedAt === null) pausedAt = now;
+                requestStatus.textContent = 'DJ pausiert';
+                return;
+            }
+            if (pausedAt !== null) {
+                endAt += now - pausedAt;
+                pausedAt = null;
+            }
+            const ended = active && now >= endAt;
+            if (ended) active = null;
+            if (!active && requests.length) {
+                active = requests.shift();
+                endAt = now + active.seconds * 1000;
+                if (active.genre !== state.genreIdx) selectGenre(active.genre);
+            } else if (ended && state.genreIdx !== backgroundGenre) {
+                selectGenre(backgroundGenre);
+            }
+            const label = active
+                ? genreLabels[active.genre] + ' · ' + Math.ceil((endAt - now) / 1000) + ' s' +
+                    (requests.length ? ' · ' + requests.length + ' wartet' : '')
+                : testMode ? 'Test bereit' : connected ? 'Wünsche offen' : 'TikFinity getrennt';
+            if (requestStatus.textContent !== label) requestStatus.textContent = label;
+        }
+
+        function pressGenre(genre) {
+            if (testMode) {
+                choices.set('test', genre);
+                requestGuide.textContent = 'Testwunsch: ' + genreLabels[genre];
+                if (!state.playing) togglePlay();
+                return;
+            }
+            backgroundGenre = genre;
+            if (!active) selectGenre(genre);
+        }
+
+        function viewerKey(event) {
+            const user = String(event.uniqueId ?? event.user?.uniqueId ?? '').trim().toLowerCase();
+            const id = event.userId ?? event.user?.userId ?? event.user?.id;
+            return user ? 'handle:' + user : id ? 'id:' + id : '';
+        }
+
+        function queueGift(genre, value) {
+            if (genre === undefined || !Number.isFinite(value) || value < 1) return;
+            const seconds = Math.min(120, 14 + Math.floor(value));
+            requests.push({genre, seconds});
+            updateRequests();
+        }
+
+        function testGift(value) {
+            if (testMode) queueGift(choices.get('test'), value);
+        }
+
+        function connectTikFinity() {
+            let socket;
+            try { socket = new WebSocket('ws://localhost:21213/'); }
+            catch { return; }
+            socket.addEventListener('open', () => {
+                connected = true;
+                wsDot.classList.add('connected');
+                updateRequests();
+            });
+            socket.addEventListener('close', () => {
+                connected = false;
+                wsDot.classList.remove('connected');
+                updateRequests();
+                setTimeout(connectTikFinity, 3500);
+            });
+            socket.addEventListener('message', ({data}) => {
+                let message;
+                try { message = JSON.parse(data); } catch { return; }
+                const event = message?.data;
+                if (!event || testMode) return;
+                const viewer = viewerKey(event);
+                if (message.event === 'chat') {
+                    const match = /^!?\s*(techno|trap|house|chill)$/i.exec(String(event.comment ?? '').trim());
+                    if (!match || !viewer) return;
+                    choices.set(viewer, genreLabels.indexOf(match[1].toUpperCase()));
+                    if (choices.size > 5000) choices.delete(choices.keys().next().value);
+                    return;
+                }
+                if (message.event !== 'gift') return;
+                const name = String(event.giftName ?? event.gift?.name ?? event.extendedGiftInfo?.name ?? '').trim().toLowerCase();
+                const rose = Number(event.giftId ?? event.gift?.id) === 5655 || name === 'rose';
+                if (Number(event.giftType ?? event.gift?.type) === 1 && !event.repeatEnd) return;
+                const id = event.groupId || event.msgId || event.messageId;
+                const key = id ? viewer + ':' + id : '';
+                if (key && giftIds.has(key)) return;
+                if (key) {
+                    giftIds.add(key);
+                    if (giftIds.size > 300) giftIds.delete(giftIds.values().next().value);
+                }
+                const value = Number(event.diamondCount ?? event.gift?.diamondCount ??
+                    event.extendedGiftInfo?.diamond_count ?? event.extendedGiftInfo?.diamondCount ?? (rose ? 1 : NaN));
+                const count = Math.max(1, Math.floor(Number(event.repeatCount) || 1));
+                const genre = rose ? 0 : giftGenres.get(name) ?? choices.get(viewer);
+                queueGift(genre, value * count);
+            });
+        }
+
+        setInterval(updateRequests, 200);
+        connectTikFinity();
+    </script>
+</body>
+</html>
