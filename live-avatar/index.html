@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eddie’s World · LIVE-Moderator</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#08070d;color:#fff;font:16px system-ui,sans-serif}
+main{width:min(100vw,56.25dvh);height:100dvh;margin:auto;display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden;background:#100a1b;position:relative}
+header,footer{z-index:1;padding:clamp(9px,2.4dvh,38px) 6%}header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+h1{font-size:clamp(11px,1.9dvh,35px);letter-spacing:.15em;margin:0;text-transform:uppercase}
+#connection{font-size:clamp(10px,1.6dvh,27px);color:#decdec;text-align:right}
+.stage{min-height:0;position:relative;display:grid;place-items:center}canvas{width:100%;height:100%;display:block}
+footer{display:grid;gap:clamp(5px,1.1dvh,22px);background:linear-gradient(180deg,#160b22,#0c0814)}
+#caption{margin:0;min-height:3em;font-size:clamp(14px,2.7dvh,49px);font-weight:680;line-height:1.2;overflow-wrap:anywhere}
+#help{margin:0;color:#e1c6ff;font-size:clamp(11px,1.7dvh,28px)}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+button{border:1px solid #9165b5;background:#28143b;color:#fff;border-radius:8px;padding:.43em .65em;font:650 clamp(11px,1.65dvh,25px) system-ui;cursor:pointer}
+</style>
+<main>
+<header><h1>Eddie’s World</h1><span id="connection">TikFinity getrennt</span></header>
+<div class="stage"><canvas id="portrait" aria-label="Animierter virtueller Moderator mit violettem Visier"></canvas></div>
+<footer>
+<p id="caption" role="status">Willkommen bei Eddie’s World.</p>
+<p id="help">Schreib <b>hallo</b>, <b>eddie</b> oder <b>thema</b> in den LIVE-Chat.</p>
+<div class="controls"><button id="voice">Ton testen</button><button id="pause" aria-pressed="false">Pause</button></div>
+</footer>
+</main>
+<script>
+'use strict';
+const canvas = document.querySelector('#portrait');
+const ctx = canvas.getContext('2d');
+const caption = document.querySelector('#caption');
+const connection = document.querySelector('#connection');
+const pauseButton = document.querySelector('#pause');
+const synth = window.speechSynthesis;
+const welcome = 'Willkommen bei Eddie’s World! Ich begleite euch durch den Abend. Schreibt Hallo, Eddie oder Thema in den Chat.';
+const topics = [
+ ['Was macht euer Hund, wenn es an der Tür klingelt?', 'Erzählt mal, wer bei euch zuerst an der Tür ist.'],
+ ['Was ist eure Lieblingsrunde mit dem Hund?', 'Ab in den Wald, ans Wasser oder mitten durch die Stadt?'],
+ ['Was ist der lustigste Quatsch, den euer Hund gemacht hat?', 'Bei Eddie’s World geht es um die echten Momente mit Hund.'],
+ ['Team früh raus oder Team letzte Runde im Dunkeln?', 'Schreibt, wann eure Hunde am liebsten rausgehen.'],
+ ['Welchen Trick hat euer Hund euch beigebracht?', 'Ich wette, einige Hunde wissen genau, wie sie an ihre Leckerlis kommen.']
+];
+const replies = new Map([
+ ['hallo','Hallo und schön, dass du bei Eddie’s World reinschaust!'],
+ ['eddie','Eddie ist ein Jack Russell Terrier. Hier geht es um echtes Hundeleben.'],
+ ['thema',null]
+]);
+let topicIndex = 0, paused = false, speaking = false, connected = false;
+let lastSpoke = -Infinity, nextTopicAt = 0, pending = null, generation = 0;
+const seenGifts = new Set();
+
+function speak(line) {
+    caption.textContent = line;
+    lastSpoke = performance.now();
+    if (!synth || !window.SpeechSynthesisUtterance) return;
+    const voiceLine = new SpeechSynthesisUtterance(line);
+    voiceLine.lang = 'de-DE';
+    voiceLine.rate = .96;
+    const german = synth.getVoices().find(voice => voice.lang === 'de-DE' && voice.localService);
+    if (german) voiceLine.voice = german;
+    const turn = ++generation;
+    voiceLine.onstart = () => { if (turn === generation) speaking = true; };
+    voiceLine.onend = voiceLine.onerror = () => { if (turn === generation) speaking = false; };
+    synth.speak(voiceLine);
+}
+
+function stopVoice() {
+    ++generation;
+    speaking = false;
+    synth?.cancel();
+}
+function start() {
+    nextTopicAt = performance.now() + 28000;
+    speak(welcome);
+}
+function currentTopic() {
+    return topics[topicIndex % topics.length];
+}
+function tick() {
+    if (paused || speaking) return;
+    const now = performance.now();
+    if (pending && now - lastSpoke >= 4500) {
+        speak(pending.line);
+        pending = null;
+    } else if (now >= nextTopicAt && now - lastSpoke > 8000) {
+        const topic = topics[topicIndex++ % topics.length];
+        nextTopicAt = now + 36000;
+        speak(topic.join(' '));
+    }
+}
+
+function react(line, priority) {
+    if (paused) return;
+    if (!pending || pending.priority <= priority) pending = {line, priority};
+    tick();
+}
+function receive(data) {
+    try {
+        const message = JSON.parse(data);
+        const event = message.data;
+        if (!event || typeof event !== 'object') return;
+        if (message.event === 'chat') {
+            const key = String(event.comment ?? '').trim().toLowerCase();
+            if (!replies.has(key)) return;
+            react(replies.get(key) ?? currentTopic()[0], 0);
+        } else if (message.event === 'gift') {
+            if (Number(event.giftType ?? event.gift?.type) === 1 && !event.repeatEnd) return;
+            const id = event.groupId || event.msgId || event.messageId;
+            if (id && seenGifts.has(id)) return;
+            if (id) {
+                seenGifts.add(id);
+                if (seenGifts.size > 200) seenGifts.delete(seenGifts.values().next().value);
+            }
+            const key = String(event.giftName ?? event.gift?.name ?? '').toLowerCase();
+            const rose = key === 'rose' || Number(event.giftId) === 5655;
+            react(rose ? 'Danke für die Rose! Schön, dass du mit dabei bist.' : 'Danke für dein Geschenk und dafür, dass du hier bist.', 1);
+        }
+    } catch {}
+}
+
+function connect() {
+    let ws;
+    try { ws = new WebSocket('ws://localhost:21213/'); }
+    catch { setTimeout(connect, 5000); return; }
+    ws.addEventListener('open', () => {
+        connected = true;
+        connection.textContent = 'TikFinity verbunden';
+    });
+    ws.addEventListener('message', event => receive(event.data));
+    ws.addEventListener('close', () => {
+        connected = false;
+        connection.textContent = 'TikFinity getrennt';
+        setTimeout(connect, 4500);
+    });
+}
+
+function ellipse(x,y,rx,ry,color) {
+    ctx.fillStyle=color;
+    ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();
+}
+function rounded(x,y,w,h,r,color) {
+    ctx.fillStyle=color;
+    ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();
+}
+function paint(ms) {
+    requestAnimationFrame(paint);
+    if (!ctx) return;
+    const ratio=Math.min(devicePixelRatio,2);
+    const w=Math.round(canvas.clientWidth*ratio), h=Math.round(canvas.clientHeight*ratio);
+    if (!w || !h) return;
+    if (canvas.width!==w || canvas.height!==h) { canvas.width=w; canvas.height=h; }
+    const unit=Math.min(w/100,h/115), t=ms/1000;
+    ctx.clearRect(0,0,w,h);
+    ctx.save();
+    ctx.translate(w*.5,h*.52);ctx.scale(unit,unit);
+    const halo=ctx.createRadialGradient(0,-9,0,0,-9,54);
+    halo.addColorStop(0,'#7643a6');halo.addColorStop(.48,'#311944');halo.addColorStop(1,'#100a1b');
+    ctx.fillStyle=halo;ctx.fillRect(-w/unit*.5,-h/unit*.52,w/unit,h/unit);
+    ctx.strokeStyle='#b785ff45';ctx.lineWidth=.45;
+    for(let i=0;i<3;i++) {
+        ctx.beginPath();ctx.ellipse(0,0,39+i*5,45+i*6,0,0,Math.PI*2);ctx.stroke();
+    }
+    for(let i=0;i<24;i++) {
+        const p=i*2.399+t*.25, radius=32+i%7*2.3;
+        ellipse(Math.cos(p)*radius,Math.sin(p)*radius*1.2,.35+i%3*.19,.35+i%3*.19,'#cbb9ff80');
+    }
+    ctx.translate(0,paused ? 0 : Math.sin(t*2.1)*.75);
+    const jacket=ctx.createLinearGradient(-27,12,32,48);
+    jacket.addColorStop(0,'#54406e');jacket.addColorStop(.55,'#251735');jacket.addColorStop(1,'#100b1b');
+    rounded(-35,14,70,40,16,jacket);
+    rounded(-13,8,26,18,5,'#776184');
+    const shell=ctx.createLinearGradient(-19,-35,21,20);
+    shell.addColorStop(0,'#f2dcff');shell.addColorStop(.45,'#bba3d4');shell.addColorStop(1,'#65547a');
+    rounded(-25,-39,50,61,17,shell);
+    rounded(-30,-24,7,27,3,'#74569b');rounded(23,-24,7,27,3,'#74569b');
+    const visor=ctx.createLinearGradient(-19,-25,16,-3);
+    visor.addColorStop(0,'#101729');visor.addColorStop(1,'#271333');
+    rounded(-20,-26,40,20,7,visor);
+    const blink=t%5.3<.12, eye=blink?.45:2.8;
+    ellipse(-9,-16,3.8,eye,'#98f7ff');ellipse(9,-16,3.8,eye,'#98f7ff');
+    rounded(-8,2,16,3.4,1.7,'#563762');
+    if (speaking && !paused) {
+        const mouth=.9+Math.abs(Math.sin(t*23)+Math.sin(t*13)*.7);
+        ellipse(0,3.7,5.5,mouth,'#ffb3fd');
+    }
+    ellipse(0,31,4.4,4.4,connected?'#8cf0de':'#b986ef');
+    ctx.restore();
+}
+
+document.querySelector('#voice').addEventListener('click', () => {
+    if (paused) pauseButton.click();
+    stopVoice();
+    speak('Hallo! Du hörst den virtuellen Moderator von Eddie’s World.');
+});
+pauseButton.addEventListener('click', () => {
+    paused = !paused;
+    pauseButton.setAttribute('aria-pressed', String(paused));
+    pauseButton.textContent = paused ? 'Fortsetzen' : 'Pause';
+    if (paused) {
+        pending = null;
+        stopVoice();
+        caption.textContent = 'Moderation pausiert.';
+    } else {
+        nextTopicAt = performance.now() + 12000;
+        speak('Weiter geht’s bei Eddie’s World.');
+    }
+});
+connect();
+start();
+requestAnimationFrame(paint);
+setInterval(tick, 350);
+</script>
+</html>
