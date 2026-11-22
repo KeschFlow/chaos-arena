@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Eddies 3D-Drucker · TikTok LIVE</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            --accent: #e879f9;
+            --accent-sec: #22d3ee;
+            --bg-outer: #05040a;
+            --bg-stage: #090712;
+            --panel-bg: rgba(15, 11, 28, 0.86);
+            --border-subtle: rgba(255, 255, 255, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0 auto;
+            width: min(100vw, 56.25dvh);
+            height: 100dvh;
+            background: var(--bg-stage);
+            color: #ffffff;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.95);
+        }
+
+        html {
+            background: var(--bg-outer);
+        }
+
+        /* Minimaler, schwebender Top-Header über der Bühne */
+        header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 20;
+            padding: clamp(12px, 2.2dvh, 24px) clamp(14px, 3vw, 28px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            pointer-events: none;
+            background: linear-gradient(to bottom, rgba(5, 4, 12, 0.82) 0%, rgba(5, 4, 12, 0) 100%);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .live-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(225, 29, 72, 0.22);
+            border: 1px solid rgba(244, 63, 94, 0.65);
+            color: #fda4af;
+            font-size: clamp(11px, 1.5dvh, 16px);
+            font-weight: 800;
+            letter-spacing: 0.08em;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f43f5e;
+            box-shadow: 0 0 10px #f43f5e;
+            animation: pulseDot 1.4s infinite ease-in-out;
+        }
+
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.45; transform: scale(0.8); }
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(16px, 2.4dvh, 28px);
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .ws-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #52525b;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        .ws-indicator.connected {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        #bpmBadge {
+            padding: 5px 10px;
+            border-radius: 8px;
+            background: rgba(15, 12, 29, 0.78);
+            border: 1px solid var(--border-subtle);
+            color: var(--accent-sec);
+            font-size: clamp(12px, 1.6dvh, 18px);
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            backdrop-filter: blur(8px);
+        }
+
+        #playBtn {
+            padding: 7px 14px;
+            min-height: clamp(36px, 4.4dvh, 52px);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(28, 20, 48, 0.88);
+            color: #ffffff;
+            font-size: clamp(12px, 1.6dvh, 18px);
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: transform 0.1s, background 0.2s, border-color 0.2s;
+        }
+
+        #playBtn.active {
+            background: rgba(232, 121, 249, 0.22);
+            border-color: var(--accent);
+            color: #f5d0fe;
+        }
+
+        /* Maximale Bühne über den gesamten Screen */
+        #stage {
+            grid-row: 1 / 4;
+            grid-column: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #07050e;
+        }
+
+        .climb { position:absolute; top:15%; left:7%; right:7%; pointer-events:none; }
+        .climb h2 { margin:0; font-size:clamp(20px,4.3dvh,70px); line-height:1.05; text-wrap:balance; }
+        #step-score { display:block; margin-top:.15em; color:#ffe6b3;
+            font:900 clamp(26px,6dvh,100px)/1 system-ui; font-variant-numeric:tabular-nums; }
+        #climb-info { margin:.45em 0 0; color:#f1d8ff; font-size:clamp(12px,2dvh,32px); overflow-wrap:anywhere; }
+        #climb-info[data-boost] { color:#ffd9df; font-weight:850; }
+
+        @media(max-width:420px) {
+            header { padding-inline:8px; gap:5px; }
+            .brand,.header-controls { gap:5px; }
+            h1 { font-size:13px; }
+            #playBtn,#bpmBadge,.live-pill { padding-inline:5px; }
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Kompaktes, hochkontrastiges DJ-Dock am unteren Rand */
+        .dock {
+            grid-row: 3;
+            grid-column: 1;
+            z-index: 20;
+            padding: clamp(10px, 1.8dvh, 22px) clamp(12px, 2.8vw, 24px) clamp(14px, 2.4dvh, 28px);
+            background: linear-gradient(to top, rgba(5, 4, 12, 0.96) 55%, rgba(5, 4, 12, 0.72) 85%, rgba(5, 4, 12, 0) 100%);
+            display: flex;
+            flex-direction: column;
+            gap: clamp(8px, 1.2dvh, 14px);
+        }
+
+        .genres {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: clamp(6px, 1.4vw, 12px);
+        }
+
+        .effects {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: clamp(6px, 1.4vw, 12px);
+        }
+
+        .dock button {
+            min-height: clamp(46px, 5.6dvh, 68px);
+            padding: 6px 4px;
+            border-radius: 12px;
+            border: 1px solid var(--border-subtle);
+            background: var(--panel-bg);
+            color: #f4f4f5;
+            font-family: inherit;
+            font-size: clamp(12px, 1.75dvh, 20px);
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: transform 0.08s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .dock button:active {
+            transform: scale(0.95);
+        }
+
+        .genres button[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: #ffffff;
+            color: #090514;
+            box-shadow: 0 0 20px rgba(232, 121, 249, 0.45);
+        }
+
+        .effects button:nth-child(1) {
+            border-color: rgba(34, 211, 238, 0.4);
+            color: #a5f3fc;
+        }
+
+        .effects button:nth-child(2) {
+            border-color: rgba(250, 204, 21, 0.4);
+            color: #fef08a;
+        }
+
+        .effects button:active {
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        #gift-test:not([hidden]) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+        .vote-board { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:2px 8px;
+            color:#eee8fe; font-size:clamp(10px,1.35dvh,17px); }
+        #vote-status { font-weight:800; color:var(--accent); }
+        .genres button { position:relative; flex-direction:column; gap:1px; overflow:hidden; }
+        .gift-icon { display:grid; place-items:center; font:normal clamp(15px,2.5dvh,29px)/1 "Segoe UI Emoji",sans-serif; }
+        .gift-icon svg { display:block; width:1em; height:1em; }
+        .genres button span { position:relative; z-index:1; }
+        #vote-status { font-size:clamp(13px,2.3dvh,30px); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">
+            <span class="live-pill"><span class="live-dot"></span>LIVE</span>
+            <h1>EDDIE’S WORLD</h1>
+        </div>
+        <div class="header-controls">
+            <span id="wsDot" class="ws-indicator" title="TikFinity WebSocket Status"></span>
+            <span id="bpmBadge">142 BPM</span>
+            <button id="playBtn" type="button" onclick="togglePlay()">▶ PLAY</button>
+        </div>
+    </header>
+
+    <section id="stage" aria-label="Eddies 3D-Drucker">
+        <canvas id="djCanvas" aria-hidden="true"></canvas>
+        <div class="climb">
+            <h2>Eddies 3D-Drucker</h2>
+            <strong id="step-score">Hund · 0 %</strong>
+            <p id="climb-info">druck Hund · Herz · Stern · Rakete · UFO · Würfel · Tasse</p>
+        </div>
+    </section>
+
+    <div class="dock">
+        <div class="vote-board">
+            <span id="vote-guide">🌹 Rose = Golddruck · Geschenke wechseln den Beat</span>
+            <span id="vote-status" role="status">TikFinity getrennt</span>
+        </div>
+        <div class="genres" role="group" aria-label="Musikrichtung">
+            <button id="genre0" type="button" aria-pressed="true" onclick="pressGenre(0)" aria-label="TECHNO – Rose"><span>TECHNO</span><span class="gift-icon" aria-hidden="true">🌹</span></button>
+            <button id="genre1" type="button" aria-pressed="false" onclick="pressGenre(1)" aria-label="TRAP – Fingerherz"><span>TRAP</span><span class="gift-icon" aria-hidden="true">🫰</span></button>
+            <button id="genre2" type="button" aria-pressed="false" onclick="pressGenre(2)" aria-label="HOUSE – Donut"><span>HOUSE</span><span class="gift-icon" aria-hidden="true">🍩</span></button>
+            <button id="genre3" type="button" aria-pressed="false" onclick="pressGenre(3)" aria-label="CHILL – Parfüm"><span>CHILL</span><span class="gift-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><rect x="8.5" y="2.5" width="7" height="4.5" rx="1" fill="#e5b7ff"/><path d="M9 7h6v2H9z" fill="#b78ad1"/><rect x="4.5" y="9" width="15" height="12.5" rx="4" fill="#b566e3" stroke="#edcdff"/><rect x="8" y="13" width="8" height="5" rx="1" fill="#f4ddff"/></svg></span></button>
+        </div>
+        <div id="gift-test" hidden>
+            <button type="button" onclick="testGift(1)">Testgeschenk · 15 s</button>
+            <button type="button" onclick="testGift(30)">Testgeschenk · 44 s</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('djCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 4 eigenständige Club-Genres mit individuellem Tempo, Rhythmus, Bassline, Lead & Lichtstimmung
+        const GENRES = [
+            {
+                name: 'TECHNO',
+                bpm: 142,
+                color: '#e879f9',      // Neon Magenta
+                secondary: '#22d3ee',  // Cyan Laser
+                ambient: '#1e0b36',
+                kicks:  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                hats:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1],
+                bass:   [41.2, 41.2, 55.0, 41.2, 41.2, 41.2, 61.7, 41.2, 41.2, 41.2, 55.0, 41.2, 49.0, 49.0, 65.4, 55.0],
+
+                bassDecay: 0.22
+            },
+            {
+                name: 'TRAP',
+                bpm: 146,
+                color: '#facc15',      // Gold / Amber
+                secondary: '#ef4444',  // Crimson
+                ambient: '#291507',
+                kicks:  [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                hats:   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                bass:   [36.7, 0, 0, 36.7, 0, 0, 43.6, 0, 41.2, 0, 0, 41.2, 0, 0, 32.7, 0],
+
+                bassDecay: 0.38
+            },
+            {
+                name: 'HOUSE',
+                bpm: 126,
+                color: '#10b981',      // Emerald Club Green
+                secondary: '#fbbf24',  // Warm Gold
+                ambient: '#06261e',
+                kicks:  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0],
+                hats:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+                bass:   [55.0, 0, 55.0, 65.4, 0, 55.0, 73.4, 0, 55.0, 0, 55.0, 82.4, 0, 73.4, 65.4, 0],
+
+                bassDecay: 0.25
+            },
+            {
+                name: 'CHILL',
+                bpm: 90,
+                color: '#38bdf8',      // Sky Blue
+                secondary: '#f472b6',  // Soft Pink
+                ambient: '#0a1c30',
+                kicks:  [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+                snares: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
+                hats:   [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1],
+                bass:   [43.6, 43.6, 0, 43.6, 0, 43.6, 51.9, 0, 43.6, 43.6, 0, 49.0, 0, 43.6, 38.9, 0],
+
+                bassDecay: 0.34
+            }
+        ];
+
+        const state = {
+            playing: false,
+            genreIdx: 0,
+            step: 0,
+            bassPulse: 0,
+            snarePulse: 0,
+            discAngleL: 0,
+            discAngleR: 0,
+            activeDeck: 0, // 0 = links, 1 = rechts (wechselt periodisch)
+            handActionPhase: 0,
+            effectTimer: 0,
+            effectType: '',
+            confetti: [],
+            smoke: []
+        };
+
+        let audioCtx = null;
+        let masterComp = null;
+        let noiseBuffer = null;
+        let stepTimer = null;
+
+        function ensureAudio() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    audioCtx = new AudioContextClass();
+                    masterComp = audioCtx.createDynamicsCompressor();
+                    masterComp.threshold.value = -12;
+                    masterComp.knee.value = 16;
+                    masterComp.ratio.value = 6;
+                    masterComp.attack.value = 0.004;
+                    masterComp.release.value = 0.14;
+                    masterComp.connect(audioCtx.destination);
+
+                    const bufSize = audioCtx.sampleRate * 0.5;
+                    noiseBuffer = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+                    const data = noiseBuffer.getChannelData(0);
+                    for (let i = 0; i < bufSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                return audioCtx.resume().catch(() => {});
+            }
+        }
+
+        // Each phrase uses a different chord progression and a composed eight-note motif.
+        const arrangements = [
+            [
+                {root: 40, chords: [0, 0, 3, -2], lead: [7, 12, 10, null, 7, 3, null, 10], wave: 'sawtooth'},
+                {root: 38, chords: [0, 5, 3, -2], lead: [12, null, 7, 3, 5, 7, 10, null], wave: 'triangle'},
+                {root: 43, chords: [0, -2, -4, -5], lead: [3, 7, null, 10, 12, null, 7, 5], wave: 'square'}
+            ],
+            [
+                {root: 38, chords: [0, -2, -4, -2], lead: [12, null, 7, null, 3, 7, null, 10], wave: 'triangle'},
+                {root: 41, chords: [0, 3, -2, -5], lead: [15, 12, null, 7, null, 3, 5, null], wave: 'sine'},
+                {root: 36, chords: [0, 5, 3, -2], lead: [7, null, 10, 12, null, 10, 3, null], wave: 'square'}
+            ],
+            [
+                {root: 45, chords: [0, -4, 3, -2], lead: [7, null, 10, 12, null, 15, 12, 10], wave: 'triangle'},
+                {root: 43, chords: [0, 5, 7, 3], lead: [12, 15, 19, null, 15, 12, null, 10], wave: 'sine'},
+                {root: 40, chords: [0, 3, 7, 5], lead: [3, 7, 12, null, 10, 7, 5, null], wave: 'triangle'}
+            ],
+            [
+                {root: 41, chords: [0, -2, -4, -5], lead: [12, null, 15, null, 7, null, 10, null], wave: 'sine'},
+                {root: 45, chords: [0, -5, -2, -4], lead: [7, null, 10, 12, null, 10, null, 3], wave: 'triangle'},
+                {root: 38, chords: [0, 3, 7, 5], lead: [15, null, 12, null, 10, 7, null, 5], wave: 'sine'}
+            ]
+        ];
+
+        function musicAt(genre, step) {
+            const bar = Math.floor(step / 16);
+            const idx = step % 16;
+            const section = Math.floor(bar / 4);
+            const phase = bar % 4;
+            const phrase = arrangements[genre][section % arrangements[genre].length];
+            const root = phrase.root + phrase.chords[phase];
+            const slot = Math.floor(idx / 2);
+            const melody = idx % 2 === 0 ? phrase.lead[(slot + (phase === 2 ? 4 : 0)) % 8] : null;
+            return {idx, phase, section, root, melody, wave: phrase.wave};
+        }
+
+        function hz(note) { return 440 * 2 ** ((note - 69) / 12); }
+
+        function synthNote(note, wave, start, duration, level, cutoff) {
+            const oscillator = audioCtx.createOscillator();
+            const filter = audioCtx.createBiquadFilter();
+            const gain = audioCtx.createGain();
+            oscillator.type = wave;
+            oscillator.frequency.value = hz(note);
+            filter.type = 'lowpass';
+            filter.frequency.value = cutoff;
+            oscillator.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterComp);
+            gain.gain.setValueAtTime(.001, start);
+            gain.gain.exponentialRampToValueAtTime(level, start + .024);
+            gain.gain.exponentialRampToValueAtTime(.001, start + duration);
+            oscillator.start(start);
+            oscillator.stop(start + duration);
+        }
+
+        function playBeatStep() {
+            if (!state.playing) return;
+            const g = GENRES[state.genreIdx];
+            const {idx, phase, section, root, melody, wave} = musicAt(state.genreIdx, state.step);
+            const breakdown = phase === 3;
+            const beatSeconds = 60 / g.bpm;
+
+            // Alle 8 Steps wechselt der DJ aktiv zwischen linkem Deck, Mixer und rechtem Deck
+            if (idx % 8 === 0) {
+                state.activeDeck = (state.activeDeck + 1) % 2;
+            }
+
+            try {
+                if (audioCtx?.state === 'running' && masterComp) {
+                    const now = audioCtx.currentTime;
+
+                    // 1. Kick-Drum
+                    if (g.kicks[idx] && (!breakdown || idx === 0)) {
+                        state.bassPulse = 1.0;
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.connect(gain);
+                        gain.connect(masterComp);
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(state.genreIdx === 1 ? 145 : 170, now);
+                        osc.frequency.exponentialRampToValueAtTime(32, now + 0.18);
+                        gain.gain.setValueAtTime(0.75, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.23);
+                        osc.start(now);
+                        osc.stop(now + 0.23);
+                    }
+
+                    // 2. Snare / Clap
+                    if ((g.snares[idx] || (breakdown && idx >= 10 && idx % 2 === 0)) && noiseBuffer) {
+                        state.snarePulse = 1.0;
+                        const noise = audioCtx.createBufferSource();
+                        noise.buffer = noiseBuffer;
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'bandpass';
+                        filter.frequency.setValueAtTime(state.genreIdx === 2 ? 1800 : 1350, now);
+                        const gain = audioCtx.createGain();
+                        noise.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(masterComp);
+                        gain.gain.setValueAtTime(0.36, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                        noise.start(now);
+                        noise.stop(now + 0.15);
+                    }
+
+                    // 3. Hi-Hat
+                    if (g.hats[idx] && noiseBuffer) {
+                        const noise = audioCtx.createBufferSource();
+                        noise.buffer = noiseBuffer;
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'highpass';
+                        filter.frequency.setValueAtTime(7800, now);
+                        const gain = audioCtx.createGain();
+                        noise.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(masterComp);
+                        const vol = (state.genreIdx === 1 && idx % 2 === 1) ? 0.12 : 0.15;
+                        gain.gain.setValueAtTime(vol, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+                        noise.start(now);
+                        noise.stop(now + 0.045);
+                    }
+
+                    // 4. Sub-Bass / 808
+                    const bassStep = g.bass[idx];
+                    const bFreq = breakdown || !bassStep ? 0 :
+                        hz(root - 12 + (idx >= 12 ? 7 : idx === 6 ? 12 : 0));
+                    if (bFreq > 0) {
+                        const osc = audioCtx.createOscillator();
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(state.genreIdx === 0 ? 260 : 190, now);
+                        const gain = audioCtx.createGain();
+                        osc.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(masterComp);
+                        osc.type = state.genreIdx === 1 ? 'sine' : 'sawtooth';
+                        osc.frequency.setValueAtTime(bFreq, now);
+                        if (state.genreIdx === 1) {
+                            osc.frequency.exponentialRampToValueAtTime(bFreq * 0.92, now + g.bassDecay);
+                        }
+                        gain.gain.setValueAtTime(0.48, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + g.bassDecay);
+                        osc.start(now);
+                        osc.stop(now + g.bassDecay);
+                    }
+
+                    // Short chord stabs alternate with sustained pads in the break.
+                    const chordHit = idx === 0 || (phase === 2 && idx === 10);
+                    if (chordHit) {
+                        const duration = beatSeconds * (breakdown ? 3.5 : state.genreIdx === 2 ? .8 : 1.8);
+                        const third = state.genreIdx === 2 && phase === 2 ? 4 : 3;
+                        for (const interval of [0, third, 7, 10]) {
+                            synthNote(root + 12 + interval, 'triangle', now, duration, .038, breakdown ? 940 : 1750);
+                        }
+                    }
+                    if (melody !== null && (!breakdown || idx < 8)) {
+                        const duration = beatSeconds * (state.genreIdx === 3 ? 1.1 : .49);
+                        synthNote(root + 12 + melody, wave, now, duration, .14,
+                            state.genreIdx === 0 ? 2100 : 1550);
+                        if (phase === 2) {
+                            synthNote(root + 12 + melody, 'sine', now + beatSeconds * .75, duration, .047, 1600);
+                        }
+                    }
+                    // Low octave accent on the downbeat after the drum fill.
+                    if (section > 0 && phase === 0 && idx === 0) {
+                        synthNote(root - 12, 'sine', now, beatSeconds * 1.7, .22, 210);
+                    }
+                }
+            } catch (e) {}
+
+            state.step++;
+        }
+
+        function startSequencer() {
+            clearInterval(stepTimer);
+            const g = GENRES[state.genreIdx];
+            const intervalMs = (60 / g.bpm / 4) * 1000;
+            state.step = 0;
+            playBeatStep();
+            stepTimer = setInterval(playBeatStep, intervalMs);
+        }
+
+        function updateThemeColors() {
+            const g = GENRES[state.genreIdx];
+            document.documentElement.style.setProperty('--accent', g.color);
+            document.documentElement.style.setProperty('--accent-sec', g.secondary);
+            document.getElementById('bpmBadge').textContent = `${g.bpm} BPM`;
+        }
+
+        function togglePlay() {
+            ensureAudio();
+            state.playing = !state.playing;
+            updateRequests();
+            const btn = document.getElementById('playBtn');
+
+            if (state.playing) {
+                btn.textContent = '⏸ PAUSE';
+                btn.classList.add('active');
+                startSequencer();
+            } else {
+                btn.textContent = '▶ PLAY';
+                btn.classList.remove('active');
+                clearInterval(stepTimer);
+            }
+        }
+
+        function selectGenre(idx) {
+            state.genreIdx = idx;
+            updateThemeColors();
+
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById(`genre${i}`);
+                btn.setAttribute('aria-pressed', String(i === idx));
+            }
+
+            if (!state.playing) {
+                togglePlay();
+            } else {
+                startSequencer();
+            }
+        }
+
+        function triggerEffect(type) {
+            if (!state.playing) togglePlay();
+            ensureAudio();
+
+            state.effectType = type;
+            state.effectTimer = 90;
+            state.bassPulse = 1.7;
+
+            const w = canvas.width || 540;
+            const h = canvas.height || 960;
+            const particleCount = type === 'rose' ? 65 : 30;
+            const colors = type === 'rose'
+                ? ['#f43f5e', '#fb7185', '#fda4af', '#facc15', '#ffffff']
+                : ['#e879f9', '#22d3ee', '#facc15', '#ffffff'];
+
+            for (let i = 0; i < particleCount; i++) {
+                state.confetti.push({
+                    x: w * 0.15 + Math.random() * (w * 0.7),
+                    y: h * 0.25 + (Math.random() - 0.5) * 120,
+                    vx: (Math.random() - 0.5) * 9,
+                    vy: -3 - Math.random() * 7,
+                    gravity: 0.18 + Math.random() * 0.1,
+                    color: colors[i % colors.length],
+                    size: 5 + Math.random() * 6,
+                    isRose: type === 'rose' && i % 4 === 0
+                });
+            }
+
+            try {
+                if (audioCtx && masterComp) {
+                    const now = audioCtx.currentTime;
+
+                    if (type === 'horn') {
+                        // Dreifaches Club-Airhorn
+                        [0, 0.14, 0.28].forEach((offset, idx) => {
+                            const dur = idx === 2 ? 0.36 : 0.11;
+                            const osc1 = audioCtx.createOscillator();
+                            const osc2 = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            osc1.type = 'sawtooth';
+                            osc2.type = 'sawtooth';
+                            osc1.frequency.setValueAtTime(466.16, now + offset);
+                            osc2.frequency.setValueAtTime(587.33, now + offset);
+                            osc1.connect(gain);
+                            osc2.connect(gain);
+                            gain.connect(masterComp);
+                            gain.gain.setValueAtTime(0.24, now + offset);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + offset + dur);
+                            osc1.start(now + offset);
+                            osc2.start(now + offset);
+                            osc1.stop(now + offset + dur);
+                            osc2.stop(now + offset + dur);
+                        });
+                    } else if (type === 'drop') {
+                        // Massiver Sub-Bass Impact + Riser-Release
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(160, now);
+                        osc.frequency.exponentialRampToValueAtTime(26, now + 0.85);
+                        osc.connect(gain);
+                        gain.connect(masterComp);
+                        gain.gain.setValueAtTime(0.85, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+                        osc.start(now);
+                        osc.stop(now + 0.9);
+
+                        if (noiseBuffer) {
+                            const noise = audioCtx.createBufferSource();
+                            noise.buffer = noiseBuffer;
+                            const filter = audioCtx.createBiquadFilter();
+                            filter.type = 'lowpass';
+                            filter.frequency.setValueAtTime(2400, now);
+                            filter.frequency.exponentialRampToValueAtTime(120, now + 0.65);
+                            const nGain = audioCtx.createGain();
+                            noise.connect(filter);
+                            filter.connect(nGain);
+                            nGain.connect(masterComp);
+                            nGain.gain.setValueAtTime(0.45, now);
+                            nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+                            noise.start(now);
+                            noise.stop(now + 0.65);
+                        }
+                    } else if (type === 'rose') {
+                        // Euphorischer Rose-Fanfare + Sub-Drop
+                        const notes = [523.25, 659.25, 783.99, 1046.5];
+                        notes.forEach((freq, i) => {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.setValueAtTime(freq, now + i * 0.07);
+                            osc.connect(gain);
+                            gain.connect(masterComp);
+                            gain.gain.setValueAtTime(0.28, now + i * 0.07);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.45);
+                            osc.start(now + i * 0.07);
+                            osc.stop(now + i * 0.07 + 0.45);
+                        });
+                        const sub = audioCtx.createOscillator();
+                        const subGain = audioCtx.createGain();
+                        sub.type = 'sine';
+                        sub.frequency.setValueAtTime(130, now + 0.21);
+                        sub.frequency.exponentialRampToValueAtTime(30, now + 0.85);
+                        sub.connect(subGain);
+                        subGain.connect(masterComp);
+                        subGain.gain.setValueAtTime(0.75, now + 0.21);
+                        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+                        sub.start(now + 0.21);
+                        sub.stop(now + 0.85);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+            canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        updateThemeColors();
+
+        // Nebel-Partikel initialisieren für Club-Atmosphäre
+        for (let i = 0; i < 14; i++) {
+            state.smoke.push({
+                x: Math.random(),
+                y: 0.2 + Math.random() * 0.55,
+                r: 0.14 + Math.random() * 0.18,
+                speed: (Math.random() - 0.5) * 0.0006,
+                alpha: 0.03 + Math.random() * 0.04
+            });
+        }
+
+        const score = document.getElementById('step-score');
+        const printerInfo = document.getElementById('climb-info');
+        const models = {
+            Hund: (x,y,z) => (Math.abs(x)<=3 && Math.abs(y)<=1 && z>=2 && z<=4) ||
+                (Math.abs(x)===2 && Math.abs(y)===1 && z<=2) ||
+                (x>=2 && x<=4 && Math.abs(y)<=1 && z>=4 && z<=6) ||
+                (x===3 && Math.abs(y)===1 && z===7) || (x===-4 && y===0 && z>=4 && z<=6),
+            Herz: (x,y,z) => Math.abs(y)<=1 && z<=7 &&
+                (z<=4 ? Math.abs(x)<=z : Math.abs(x)<=4 && (z<7 || Math.abs(x)>=1 && Math.abs(x)<=3)),
+            Stern: (x,y,z) => Math.abs(y)<=1 && Math.hypot(x,z-4)<=3.1+1.65*Math.sin(5*Math.atan2(z-4,x)),
+            Rakete: (x,y,z) => Math.hypot(x,y)<(z<2?3.2:z<=5?2.25:Math.max(.7,9-z)),
+            UFO: (x,y,z) => Math.hypot(x,y)<([0,2.1,4.4,4.9,3.2,2.2,1.6][z] || 0),
+            Würfel: (x,y,z) => Math.abs(x)<=3 && Math.abs(y)<=3 && z<=6,
+            Tasse: (x,y,z) => (Math.hypot(x,y)<3.35 && z<=5 && (z===0 || Math.hypot(x,y)>2.3)) ||
+                (y===0 && x>=3 && x<=5 && z>=1 && z<=5 && (z===1 || z===5 || x===5))
+        };
+        const catalogue = Object.keys(models);
+        const aliases = new Map(catalogue.map(name => [name.toLowerCase(), name]));
+        aliases.set('wuerfel','Würfel');
+        const shapes = new Map(catalogue.map(name => {
+            const voxels = [];
+            for (let z=0;z<9;z++) for (let x=-5;x<=5;x++) for (let y=-5;y<=5;y++) {
+                if (models[name](x,y,z)) voxels.push({x,y,z});
+            }
+            return [name, voxels];
+        }));
+        const printQueue = [];
+        let printTime = 0;
+        let lastPrintFrame = null;
+        let autoModel = 0;
+        let goldJobs = 0;
+        let currentPrint = {model:catalogue[0], gold:false, viewer:''};
+
+        function requestPrint(comment, viewer) {
+            const command = /^!?druck(?:e)?\s+([\p{L}]+)$/iu.exec(comment);
+            const model = command && aliases.get(command[1].toLowerCase());
+            if (!model || printQueue.length >= 6 || printQueue.some(job => job.viewer === viewer)) return;
+            printQueue.push({model, viewer});
+        }
+
+        function nextPrint() {
+            const job = printQueue.shift() || {model:catalogue[++autoModel % catalogue.length], viewer:''};
+            currentPrint = {...job, gold:goldJobs > 0};
+            if (goldJobs) goldJobs--;
+        }
+
+        function face(points, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(...points[0]);
+            for (let i=1;i<points.length;i++) ctx.lineTo(...points[i]);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function renderPrinter(now = 0) {
+            requestAnimationFrame(renderPrinter);
+            if (lastPrintFrame !== null && state.playing) printTime += Math.min(80, Math.max(0,now-lastPrintFrame))/1000;
+            lastPrintFrame = now;
+            if (printTime >= 17) {
+                printTime -= 17;
+                nextPrint();
+            }
+
+            const voxels = shapes.get(currentPrint.model);
+            const printed = Math.min(voxels.length, Math.floor(voxels.length * printTime / 13));
+            const progress = Math.floor(printed * 100 / voxels.length);
+            const label = currentPrint.model + ' · ' + (progress===100 ? 'fertig' : progress+' %');
+            if (score.textContent !== label) score.textContent = label;
+            const status = (currentPrint.gold ? '✨ Golddruck · ' : '') +
+                (currentPrint.viewer ? 'Für ' + currentPrint.viewer + ' · ' : '') +
+                (goldJobs ? goldJobs + ' × Gold bereit · ' : '') + (printQueue.length ? printQueue.length + ' in der Warteschlange' :
+                'druck Hund · Herz · Stern · Rakete · UFO · Würfel · Tasse');
+            if (printerInfo.textContent !== status) printerInfo.textContent = status;
+
+            const w=canvas.width,h=canvas.height;
+            const g=GENRES[state.genreIdx];
+            const bg=ctx.createRadialGradient(w*.5,h*.57,0,w*.5,h*.57,w*.77);
+            bg.addColorStop(0,g.ambient);
+            bg.addColorStop(1,'#080514');
+            ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+            const unit=w*.035;
+            const project=(x,y,z)=>[w*.5+(x-y)*unit,h*.65+(x+y)*unit*.47-z*unit*.95];
+            const palette=currentPrint.gold ? ['#fff0a1','#e2a94c','#996019'] : [g.secondary,g.color,g.ambient];
+            face([project(-6,-6,-.35),project(6,-6,-.35),project(6,6,-.35),project(-6,6,-.35)],'#322844');
+            ctx.lineWidth=1;
+            ctx.strokeStyle='#daceff40';
+            for (let i=-6;i<=6;i++) {
+                ctx.beginPath();ctx.moveTo(...project(i,-6,-.32));ctx.lineTo(...project(i,6,-.32));ctx.stroke();
+                ctx.beginPath();ctx.moveTo(...project(-6,i,-.32));ctx.lineTo(...project(6,i,-.32));ctx.stroke();
+            }
+            const visible=voxels.slice(0,printed).sort((a,b)=>(a.x+a.y+a.z)-(b.x+b.y+b.z));
+            for (const {x,y,z} of visible) {
+                const a=project(x,y,z+1),b=project(x+1,y,z+1),c=project(x+1,y+1,z+1),d=project(x,y+1,z+1);
+                face([b,project(x+1,y,z),project(x+1,y+1,z),c],palette[2]);
+                face([c,project(x+1,y+1,z),project(x,y+1,z),d],palette[1]);
+                face([a,b,c,d],palette[0]);
+            }
+            if (printed<voxels.length) {
+                const tip=voxels[printed];
+                const [x,y]=project(tip.x+.5,tip.y+.5,tip.z+1);
+                ctx.fillStyle='#2e263b';
+                ctx.fillRect(w*.12,y-unit*1.1,w*.76,unit*.19);
+                ctx.fillStyle='#f0d9ff';
+                ctx.fillRect(x-unit*.58,y-unit*1.45,unit*1.16,unit*.75);
+                ctx.fillStyle=palette[0];
+                ctx.fillRect(x-unit*.15,y-unit*.7,unit*.30,unit*.70);
+            }
+        }
+
+        const wsDot = document.getElementById('wsDot');
+        const requestStatus = document.getElementById('vote-status');
+        const requestGuide = document.getElementById('vote-guide');
+        const genreLabels = ['TECHNO', 'TRAP', 'HOUSE', 'CHILL'];
+        const choices = new Map();
+        const giftGenres = new Map([
+            ['rose', 0], ['finger heart', 1], ['fingerherz', 1],
+            ['doughnut', 2], ['donut', 2], ['perfume', 3], ['parfüm', 3], ['parfum', 3]
+        ]);
+        const giftIds = new Set();
+        const requests = [];
+        const testMode = location.hash === '#test' || location.hash === '#vote-test';
+        let connected = false;
+        let active = null;
+        let endAt = 0;
+        let pausedAt = null;
+        let backgroundGenre = state.genreIdx;
+        const useVoice = new URLSearchParams(location.search).get('voice') === '1';
+        let lastAnnouncement = -Infinity;
+
+        function announce(genre) {
+            const now = performance.now();
+            if (!useVoice || !window.speechSynthesis || !window.SpeechSynthesisUtterance ||
+                window.speechSynthesis.speaking || now - lastAnnouncement < 8000) return;
+            const line = new window.SpeechSynthesisUtterance(
+                ['Jetzt läuft Techno.', 'Jetzt läuft Trap.', 'Jetzt läuft House.', 'Jetzt läuft Chill.'][genre]);
+            line.lang = 'de-DE';
+            line.volume = .66;
+            try { window.speechSynthesis.speak(line); lastAnnouncement = now; } catch {}
+        }
+
+        if (testMode) {
+            requestGuide.textContent = 'Test: Genre wählen und Testgeschenk anklicken';
+            document.getElementById('gift-test').hidden = false;
+        }
+
+        function updateRequests() {
+            const now = performance.now();
+            if (!state.playing) {
+                if (active && pausedAt === null) pausedAt = now;
+                requestStatus.textContent = 'DJ pausiert';
+                return;
+            }
+            if (pausedAt !== null) {
+                endAt += now - pausedAt;
+                pausedAt = null;
+            }
+            const ended = active && now >= endAt;
+            if (ended) active = null;
+            if (!active && requests.length) {
+                active = requests.shift();
+                announce(active.genre);
+                endAt = now + active.seconds * 1000;
+                if (active.genre !== state.genreIdx) selectGenre(active.genre);
+            } else if (ended && state.genreIdx !== backgroundGenre) {
+                selectGenre(backgroundGenre);
+            }
+            const label = active
+                ? genreLabels[active.genre] + (active.name ? ' · ' + active.name : '') + ' · ' + Math.ceil((endAt - now) / 1000) + ' s' +
+                    (requests.length ? ' · ' + requests.length + ' wartet' : '')
+                : testMode ? 'Test bereit' : connected ? 'Chat verbunden' : 'TikFinity getrennt';
+            if (requestStatus.textContent !== label) requestStatus.textContent = label;
+        }
+
+        function pressGenre(genre) {
+            if (testMode) {
+                choices.set('test', genre);
+                requestGuide.textContent = 'Testwunsch: ' + genreLabels[genre];
+                if (!state.playing) togglePlay();
+                return;
+            }
+            backgroundGenre = genre;
+            if (!active) selectGenre(genre);
+        }
+
+        function viewerKey(event) {
+            const user = String(event.uniqueId ?? event.user?.uniqueId ?? '').trim().toLowerCase();
+            const id = event.userId ?? event.user?.userId ?? event.user?.id;
+            return user ? 'handle:' + user : id ? 'id:' + id : '';
+        }
+
+        function queueGift(genre, value, name = '') {
+            if (genre === undefined || !Number.isFinite(value) || value < 1) return;
+            const seconds = Math.min(120, 14 + Math.floor(value));
+            requests.push({genre, seconds, name});
+            updateRequests();
+        }
+
+        function testGift(value) {
+            if (!testMode) return;
+            const genre = choices.get('test');
+            if (genre === 0) goldJobs++;
+            queueGift(genre, value, '@Test');
+        }
+
+        function connectTikFinity() {
+            let socket;
+            try { socket = new WebSocket('ws://localhost:21213/'); }
+            catch { return; }
+            socket.addEventListener('open', () => {
+                connected = true;
+                wsDot.classList.add('connected');
+                updateRequests();
+            });
+            socket.addEventListener('close', () => {
+                connected = false;
+                wsDot.classList.remove('connected');
+                updateRequests();
+                setTimeout(connectTikFinity, 3500);
+            });
+            socket.addEventListener('message', ({data}) => {
+                let message;
+                try { message = JSON.parse(data); } catch { return; }
+                const event = message?.data;
+                if (!event || testMode) return;
+                const viewer = viewerKey(event);
+                if (message.event === 'chat') {
+                    const number = String(event.comment ?? '').trim();
+                    const handle = String(event.uniqueId ?? event.user?.uniqueId ?? '').trim();
+                    if (/^[\p{L}\p{N}_.]{1,24}$/u.test(handle)) requestPrint(number, '@' + handle);
+                    const match = /^!?\s*(techno|trap|house|chill)$/i.exec(String(event.comment ?? '').trim());
+                    if (!match || !viewer) return;
+                    choices.set(viewer, genreLabels.indexOf(match[1].toUpperCase()));
+                    if (choices.size > 5000) choices.delete(choices.keys().next().value);
+                    return;
+                }
+                if (message.event !== 'gift') return;
+                const name = String(event.giftName ?? event.gift?.name ?? event.extendedGiftInfo?.name ?? '').trim().toLowerCase();
+                const rose = Number(event.giftId ?? event.gift?.id) === 5655 || name === 'rose';
+                if (Number(event.giftType ?? event.gift?.type) === 1 && !event.repeatEnd) return;
+                const id = event.groupId || event.msgId || event.messageId;
+                const key = id ? viewer + ':' + id : '';
+                if (key && giftIds.has(key)) return;
+                if (key) {
+                    giftIds.add(key);
+                    if (giftIds.size > 300) giftIds.delete(giftIds.values().next().value);
+                }
+                const value = Number(event.diamondCount ?? event.gift?.diamondCount ??
+                    event.extendedGiftInfo?.diamond_count ?? event.extendedGiftInfo?.diamondCount ?? (rose ? 1 : NaN));
+                const count = Math.max(1, Math.floor(Number(event.repeatCount) || 1));
+                const genre = rose ? 0 : giftGenres.get(name) ?? choices.get(viewer);
+                const handle = String(event.uniqueId ?? event.user?.uniqueId ?? '').trim();
+                const credit = /^[\p{L}\p{N}_.]{1,24}$/u.test(handle) ? '@' + handle : '';
+                if (rose) goldJobs++;
+                queueGift(genre, value * count, credit);
+            });
+        }
+
+        setInterval(updateRequests, 200);
+        connectTikFinity();
+
+        function unlockSound() {
+            if (state.playing && audioCtx?.state === 'suspended') ensureAudio();
+        }
+        window.addEventListener('pointerdown', unlockSound);
+        window.addEventListener('keydown', unlockSound);
+        if (!testMode && new URLSearchParams(location.search).get('autoplay') !== '0') togglePlay();
+        renderPrinter();
+    </script>
+</body>
+</html>
