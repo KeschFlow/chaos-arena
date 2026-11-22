@@ -393,7 +393,7 @@
                 }
             }
             if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().catch(() => {});
+                return audioCtx.resume().catch(() => {});
             }
         }
 
@@ -1340,6 +1340,15 @@
 
         setInterval(updateRequests, 200);
         connectTikFinity();
+
+        async function startStudioPlayback() {
+            const params = new URLSearchParams(location.search);
+            if (testMode || params.get('autoplay') !== '1') return;
+            await ensureAudio();
+            if (!state.playing && audioCtx?.state === 'running') togglePlay();
+        }
+
+        startStudioPlayback();
     </script>
 </body>
 </html>
