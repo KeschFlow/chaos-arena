@@ -76,6 +76,9 @@ export function step(b) {
   // A ring-out requires the top to cross the edge, with a recent physical collision.
   for(const p of b.tops){
     if(!p.alive)continue;
+    // Never eliminate the final survivor in the same simulation tick.
+    // The preceding actual ring-out determines the champion.
+    if(b.tops.filter(q=>q.alive).length<=1)break;
     const d=Math.hypot(p.x,p.y);
     if(d+p.radius<=b.radius)continue;
     const outward=(p.x*p.vx+p.y*p.vy)/(d||1);
