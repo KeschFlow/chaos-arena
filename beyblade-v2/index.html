@@ -1,53 +1,364 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CHAOS ARENA V2 — Kreiselkampf</title><style>
-*{box-sizing:border-box}body{margin:0;background:#070b18;color:#f6f8ff;font:600 15px system-ui;display:flex;justify-content:center}main{width:min(100%,480px);height:100dvh;display:flex;flex-direction:column;padding:12px;gap:8px}header{display:flex;justify-content:space-between;align-items:center}h1{font-size:18px;margin:0}small{color:#9fb0d5}#stage{flex:1;min-height:0;position:relative;background:radial-gradient(ellipse at center,#1d3053,#090e1d 70%);border:1px solid #273959;border-radius:18px;overflow:hidden}canvas{width:100%;height:100%;display:block}#status{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;pointer-events:none;text-shadow:0 2px 4px black}#banner{position:absolute;bottom:18px;left:8px;right:8px;text-align:center;font-size:19px;font-weight:900;text-shadow:0 2px 8px #000}footer{display:flex;gap:8px}button{flex:1;background:#6d50fa;border:0;color:white;border-radius:12px;padding:13px;font-weight:800;cursor:pointer}button.secondary{background:#27334c}#matchup{text-align:center;font-size:12px;padding:9px;background:#18233a;border-radius:9px}#matchup strong{color:#fff;font-size:17px;margin:0 8px}
-</style></head><body><main><header><div><h1>UNAUFHALTSAM · CHAOS ARENA V2</h1><small>WELTLIGA · SAISON 1</small></div><strong id="round">KAMPF 1</strong></header><section id="stage"><canvas id="arena"></canvas><div id="status"><span id="timer">00:00</span><span id="count">2 IM RING</span></div><div id="banner">EINZEL · 1 GEGEN 1</div></section><div id="matchup">001 KREISELKREIS <strong>0 : 0</strong> TEAM 002 · KAMPF 1/5 · EINZEL</div><footer><button id="restart">NEUER KAMPF</button><button class="secondary" id="pause">PAUSE</button></footer><small>Kampf-Prototyp: vereinfachte 2D-Physik. Weltliga-Spielplan und Bauteilwerkstatt folgen.</small></main><script type="module">
-import {createBattle,step,STEP,TYPES} from './physics.js';
-const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d'),banner=document.querySelector('#banner');
-let battle=createBattle(1,[0,1]),running=true,previous=0,accumulator=0,round=1,doneAt=0;
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#070b18">
+  <link rel="icon" href="data:,">
+  <title>CHAOS ARENA V2 — Kreiselkampf</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    body {
+      display: flex;
+      justify-content: center;
+      overflow: hidden;
+      background: #070b18;
+      color: #f6f8ff;
+      font: 600 15px system-ui, sans-serif;
+    }
+    main {
+      display: flex;
+      width: min(100%, 480px);
+      height: 100vh;
+      height: 100dvh;
+      min-height: 360px;
+      flex-direction: column;
+      gap: 8px;
+      padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
+    }
+    header { display: flex; justify-content: space-between; align-items: center; }
+    h1 { margin: 0; font-size: clamp(13px, 3.8vw, 18px); white-space: nowrap; }
+    #round { font-size: 13px; white-space: nowrap; }
+    small { color: #9fb0d5; }
+    #stage {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      border: 1px solid #273959;
+      border-radius: 18px;
+      background: radial-gradient(ellipse at center, #1d3053, #090e1d 70%);
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    #status {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      left: 10px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      text-shadow: 0 2px 4px #000;
+    }
+    #banner {
+      position: absolute;
+      right: 8px;
+      bottom: 18px;
+      left: 8px;
+      text-align: center;
+      font-size: clamp(15px, 4vw, 19px);
+      font-weight: 900;
+      text-shadow: 0 2px 8px #000;
+    }
+    #matchup {
+      padding: 9px;
+      border-radius: 9px;
+      background: #18233a;
+      text-align: center;
+      font-size: 12px;
+    }
+    #matchup strong { margin: 0 8px; color: #fff; font-size: 17px; }
+    footer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    button {
+      min-width: 0;
+      min-height: 48px;
+      padding: 10px 6px;
+      border: 0;
+      border-radius: 12px;
+      background: #6d50fa;
+      color: #fff;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    button.secondary { background: #27334c; }
+    button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+    @media (max-height: 560px) {
+      main { min-height: 0; gap: 5px; padding-top: 6px; padding-bottom: 6px; }
+      h1 { font-size: 15px; }
+      #matchup { padding: 5px; }
+      button { min-height: 42px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>UNAUFHALTSAM · CHAOS ARENA V2</h1>
+        <small>WELTLIGA · SAISON 1</small>
+      </div>
+      <strong id="round">KAMPF 1</strong>
+    </header>
+    <section id="stage" aria-label="Kreiselkampf">
+      <canvas id="arena" aria-label="3D-Ansicht des Arena-Kampfes"></canvas>
+      <div id="status"><span id="timer">00:00</span><span id="count">2 IM RING</span></div>
+      <div id="banner" aria-live="polite">EINZEL · 1 GEGEN 1</div>
+    </section>
+    <div id="matchup">001 KREISELKREIS <strong>0 : 0</strong> TEAM 002 · KAMPF 1/5 · EINZEL</div>
+    <footer>
+      <button id="restart">NEUER KAMPF</button>
+      <button id="pause" class="secondary">PAUSE</button>
+      <button id="sound" class="secondary" aria-pressed="false" title="Spielton einschalten">TON AUS</button>
+    </footer>
+    <small>LIVE-HOCHFORMAT · Ton über die Schaltfläche aktivieren</small>
+  </main>
+  <script type="module">
+    import {createBattle, step, STEP, TYPES} from './physics.js';
 
-function restart(){battle=createBattle(++round,[round%4,(round+1)%4]);running=true;doneAt=0;accumulator=0;banner.textContent='EINZEL · 1 GEGEN 1';document.querySelector('#round').textContent='KAMPF '+round;document.querySelector('#pause').textContent='PAUSE'}
-document.querySelector('#restart').onclick=restart;document.querySelector('#pause').onclick=()=>{running=!running;document.querySelector('#pause').textContent=running?'PAUSE':'WEITER'};
-function topDraw(p,cx,cy,scale){
- const x=cx+p.x*scale,y=cy+p.y*scale,r=p.radius*scale;
- ctx.save();ctx.translate(x,y);ctx.rotate(p.angle);
- ctx.shadowColor='#000';ctx.shadowBlur=12;ctx.shadowOffsetY=7;
- ctx.fillStyle='#050713';ctx.beginPath();ctx.ellipse(0,r*.34,r*1.04,r*.78,0,0,Math.PI*2);ctx.fill();
- ctx.shadowBlur=0;ctx.shadowOffsetY=0;
- ctx.fillStyle=TYPES[p.type].color;ctx.beginPath();ctx.ellipse(0,0,r,r*(.64-p.tilt*.2),0,0,Math.PI*2);ctx.fill();
- ctx.strokeStyle='#e7f4ff';ctx.lineWidth=Math.max(1,r*.12);ctx.beginPath();ctx.ellipse(0,0,r*.75,r*.48,0,0,Math.PI*2);ctx.stroke();
- for(let i=0;i<5;i++){let a=i*Math.PI*2/5;ctx.beginPath();ctx.moveTo(Math.cos(a)*r*.3,Math.sin(a)*r*.2);ctx.lineTo(Math.cos(a)*r*.88,Math.sin(a)*r*.56);ctx.strokeStyle='#11192c';ctx.lineWidth=r*.16;ctx.stroke()}
- ctx.fillStyle='#e8eaff';ctx.beginPath();ctx.ellipse(0,0,r*.27,r*.18,0,0,Math.PI*2);ctx.fill();
- ctx.restore();
- ctx.fillStyle='#fff';ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.fillText(p.name,x,y-r-9);
-}
-function draw(){
- const w=canvas.clientWidth,h=canvas.clientHeight,dpr=Math.min(devicePixelRatio||1,2);
- if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr)}
- ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
- const cx=w/2,cy=h/2,scale=Math.min(w*.46,h*.40);
- ctx.save();ctx.translate(cx,cy);ctx.scale(1,.85);
- const rad=battle.radius*scale;
- const glow=ctx.createRadialGradient(0,0,rad*.1,0,0,rad);
- glow.addColorStop(0,'#21395c');glow.addColorStop(.85,'#111d35');glow.addColorStop(1,'#050915');
- ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,rad,0,Math.PI*2);ctx.fill();
- ctx.strokeStyle='#7da7ff';ctx.lineWidth=8;ctx.shadowColor='#5576ff';ctx.shadowBlur=15;ctx.beginPath();ctx.arc(0,0,rad,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
- for(let r=.25;r<1;r+=.25){ctx.strokeStyle='#33486a';ctx.lineWidth=1;ctx.beginPath();ctx.arc(0,0,rad*r,0,Math.PI*2);ctx.stroke()}
- ctx.restore();
- for(const p of battle.tops.filter(p=>p.alive))topDraw(p,cx,cy,scale);
- const seconds=Math.floor(battle.tick*STEP);document.querySelector('#timer').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
- document.querySelector('#count').textContent=battle.tops.filter(p=>p.alive).length+' IM RING';
-}
-function frame(now){
- const elapsed=previous?Math.min((now-previous)/1000,.08):0;previous=now;
- if(running&&battle.winner===null){
- accumulator+=elapsed;let steps=0;
- while(accumulator>=STEP&&steps++<12){step(battle);accumulator-=STEP}
- if(steps>=12)accumulator=0;
- const last=battle.events[battle.events.length-1];
- if(last?.type==='ringout'&&last.tick===battle.tick)banner.textContent=battle.tops[last.id].name+' · RING-OUT!';
- if(battle.winner!==null){banner.textContent='SIEGER: '+battle.tops[battle.winner].name;doneAt=now}
- }
- draw();if(doneAt&&now-doneAt>5000)restart();requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);
-</script></body></html>
+    const canvas = document.querySelector('#arena');
+    const ctx = canvas.getContext('2d');
+    const banner = document.querySelector('#banner');
+    const pauseButton = document.querySelector('#pause');
+    const soundButton = document.querySelector('#sound');
+    const timer = document.querySelector('#timer');
+    const count = document.querySelector('#count');
+    const roundLabel = document.querySelector('#round');
+    let battle = createBattle(1, [0, 1]);
+    let running = true;
+    let previous = 0;
+    let accumulator = 0;
+    let round = 1;
+    let doneAt = 0;
+    let eventCursor = 0;
+    let audioContext = null;
+    let soundEnabled = false;
+    let lastHitSoundAt = 0;
+
+    function restart() {
+      battle = createBattle(++round, [round % 4, (round + 1) % 4]);
+      running = true;
+      doneAt = 0;
+      accumulator = 0;
+      eventCursor = 0;
+      banner.textContent = 'EINZEL · 1 GEGEN 1';
+      roundLabel.textContent = 'KAMPF ' + round;
+      pauseButton.textContent = 'PAUSE';
+    }
+
+    document.querySelector('#restart').onclick = restart;
+    pauseButton.onclick = () => {
+      running = !running;
+      pauseButton.textContent = running ? 'PAUSE' : 'WEITER';
+    };
+
+    function playTone(startFrequency, endFrequency, duration, delay = 0) {
+      if (!soundEnabled || audioContext?.state !== 'running') return;
+      const start = audioContext.currentTime + delay;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(startFrequency, start);
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, endFrequency), start + duration);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.07, start + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(start);
+      oscillator.stop(start + duration + 0.01);
+    }
+
+    function playEventSound(event) {
+      if (event.type === 'hit') {
+        const now = performance.now();
+        if (now - lastHitSoundAt > 100) {
+          playTone(340, 220, 0.07);
+          lastHitSoundAt = now;
+        }
+      } else if (event.type === 'ringout') {
+        playTone(440, 130, 0.28);
+      } else if (event.type === 'winner') {
+        playTone(480, 720, 0.16);
+        playTone(640, 960, 0.2, 0.16);
+        playTone(820, 1180, 0.3, 0.34);
+      }
+    }
+
+    async function toggleSound() {
+      if (soundEnabled) {
+        soundEnabled = false;
+        soundButton.textContent = 'TON AUS';
+        soundButton.title = 'Spielton einschalten';
+        soundButton.setAttribute('aria-pressed', 'false');
+        return;
+      }
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) {
+        soundButton.textContent = 'TON NICHT DA';
+        soundButton.title = 'Dieser Browser unterstützt keine Web-Audio-Ausgabe.';
+        return;
+      }
+      audioContext ??= new AudioContextClass();
+      try {
+        await audioContext.resume();
+      } catch (error) {
+        soundButton.textContent = 'TON FEHLER';
+        soundButton.title = String(error);
+        console.error('Audio konnte nicht aktiviert werden.', error);
+        return;
+      }
+      if (audioContext.state !== 'running') {
+        soundButton.textContent = 'TON GESPERRT';
+        soundButton.title = 'Der Browser hat die Audio-Ausgabe nicht freigegeben.';
+        return;
+      }
+      soundEnabled = true;
+      soundButton.textContent = 'TON AN';
+      soundButton.title = 'Spielton ausschalten';
+      soundButton.setAttribute('aria-pressed', 'true');
+    }
+
+    soundButton.onclick = () => { void toggleSound(); };
+
+    function topDraw(p, cx, cy, scale, labelLane) {
+      const x = cx + p.x * scale;
+      const y = cy + p.y * scale * 0.85;
+      const r = p.radius * scale;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(p.angle);
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 7;
+      ctx.fillStyle = '#050713';
+      ctx.beginPath();
+      ctx.ellipse(0, r * 0.34, r * 1.04, r * 0.78, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.fillStyle = TYPES[p.type].color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r, r * (0.64 - p.tilt * 0.2), 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#e7f4ff';
+      ctx.lineWidth = Math.max(1, r * 0.12);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r * 0.75, r * 0.48, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      for (let i = 0; i < 5; i++) {
+        const angle = i * Math.PI * 2 / 5;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * r * 0.3, Math.sin(angle) * r * 0.2);
+        ctx.lineTo(Math.cos(angle) * r * 0.88, Math.sin(angle) * r * 0.56);
+        ctx.strokeStyle = '#11192c';
+        ctx.lineWidth = r * 0.16;
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#e8eaff';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r * 0.27, r * 0.18, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.max(9, Math.min(12, r * 0.58))}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.fillText(p.name, x, y - r - 10 - labelLane * 16);
+    }
+
+    function draw() {
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      const active = battle.tops.filter(p => p.alive);
+      const extentX = Math.max(battle.radius, ...active.map(p => Math.abs(p.x) + p.radius + 0.35));
+      const extentY = Math.max(battle.radius, ...active.map(p => Math.abs(p.y) + p.radius + 0.28 + active.length * 0.07));
+      const scale = Math.max(1, Math.min(
+        (width / 2 - 24) / extentX,
+        (height / 2 - 32) / (extentY * 0.85)
+      ));
+      const cx = width / 2;
+      const cy = height / 2;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(1, 0.85);
+      const radius = battle.radius * scale;
+      const glow = ctx.createRadialGradient(0, 0, radius * 0.1, 0, 0, radius);
+      glow.addColorStop(0, '#21395c');
+      glow.addColorStop(0.85, '#111d35');
+      glow.addColorStop(1, '#050915');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#7da7ff';
+      ctx.lineWidth = 8;
+      ctx.shadowColor = '#5576ff';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      for (let ring = 0.25; ring < 1; ring += 0.25) {
+        ctx.strokeStyle = '#33486a';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * ring, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+      active.forEach((top, index) => topDraw(top, cx, cy, scale, index));
+      const seconds = Math.floor(battle.tick * STEP);
+      timer.textContent = String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
+      count.textContent = active.length + ' IM RING';
+    }
+
+    function showBattleEvents(now) {
+      const events = battle.events.slice(eventCursor);
+      eventCursor = battle.events.length;
+      for (const event of events) {
+        playEventSound(event);
+        if (event.type === 'ringout') {
+          banner.textContent = battle.tops[event.id].name + ' · RING-OUT!';
+        }
+      }
+      if (battle.winner !== null && !doneAt) {
+        banner.textContent = 'SIEGER: ' + battle.tops[battle.winner].name;
+        doneAt = now;
+      } else if (battle.draw && !doneAt) {
+        banner.textContent = 'KEIN SIEGER · NEUER KAMPF';
+        doneAt = now;
+      }
+    }
+
+    function frame(now) {
+      const elapsed = previous ? Math.min((now - previous) / 1000, 0.08) : 0;
+      previous = now;
+      if (running && battle.winner === null && !battle.draw) {
+        accumulator += elapsed;
+        let steps = 0;
+        while (accumulator >= STEP && steps++ < 12) {
+          step(battle);
+          accumulator -= STEP;
+        }
+        if (steps >= 12) accumulator = 0;
+      }
+      showBattleEvents(now);
+      draw();
+      if (doneAt && now - doneAt > 5000) restart();
+      requestAnimationFrame(frame);
+    }
+
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

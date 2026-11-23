@@ -22,14 +22,16 @@ export function createBattle(seed=1, contestants=[0,1]) {
       angle:random()*Math.PI*2,omega:(random()<0.5?-1:1)*(35+random()*12),
       radius:0.105,mass:spec.mass,alive:true,tilt:0,hitBy:null,hitTick:-1,knockouts:0};
   });
-  return {seed,tick:0,radius:1,tops,events:[],winner:null};
+  return {seed,tick:0,radius:1,tops,events:[],winner:null,draw:false};
 }
 export function step(b) {
-  if(b.winner!==null) return b;
+  if(b.winner!==null||b.draw) return b;
   const dt=STEP; b.tick++;
   const t=b.tick*dt;
-  // The bowl becomes smaller after 30 s. The edge is not a solid wall.
-  b.radius=1-Math.min(0.53,Math.max(0,t-30)*0.007);
+  const previousRadius=b.radius;
+  // Keep the contracting bowl active until it can no longer contain a top.
+  b.radius=Math.max(0.04,1-Math.max(0,t-30)*0.007);
+  const shrinking=b.radius<previousRadius;
   for(const p of b.tops) {
     if(!p.alive)continue;
     const spec=TYPES[p.type];
@@ -40,7 +42,7 @@ export function step(b) {
     p.tilt=(1-stability)*0.48;
     const distance=Math.hypot(p.x,p.y)||1;
     // Smooth bowl force, tangential gyroscopic drift, contact friction.
-    const radialForce=(0.18*distance+2.8*Math.pow(distance/Math.max(b.radius,0.45),5))/spec.mass;
+    const radialForce=(0.18*distance+2.8*Math.pow(distance/Math.max(b.radius,0.12),5))/spec.mass;
     // Tip contact: a small part of rotational energy becomes tangential motion.
     // No constant orbit motor: the coupling decreases with spin.
     const roll=0.003*spec.grip*p.omega*p.tilt;
@@ -77,29 +79,35 @@ export function step(b) {
     a.hitBy=c.id;c.hitBy=a.id;a.hitTick=b.tick;c.hitTick=b.tick;
     b.events.push({type:'hit',tick:b.tick,a:a.id,c:c.id,strength:Math.abs(normal)});
   }
-  // A ring-out requires the top to cross the edge, with a recent physical collision.
+  // A top leaves when its body crosses the lip or the shrinking bowl passes underneath it.
+  const ringouts=[];
   for(const p of b.tops){
     if(!p.alive)continue;
-    if(b.tops.filter(q=>q.alive).length<=1)break;
     const d=Math.hypot(p.x,p.y);
-    if(d+p.radius<=b.radius)continue;
     const outward=(p.x*p.vx+p.y*p.vy)/(d||1);
-    if(d>=b.radius && outward>0.28){
+    const crossedEdge=d+p.radius>=b.radius;
+    if(d>=b.radius || (crossedEdge&&shrinking)){
       p.alive=false;
-      const attacker=b.tops[p.hitBy];if(attacker)attacker.knockouts++;
-      b.events.push({type:'ringout',tick:b.tick,id:p.id,by:p.hitBy});
-    } else {
+      const recentHit=b.tick-p.hitTick<=120;
+      const by=recentHit?p.hitBy:null;
+      const attacker=by===null?null:b.tops[by];
+      if(attacker)attacker.knockouts++;
+      b.events.push({type:'ringout',tick:b.tick,id:p.id,by});
+      ringouts.push(p.id);
+    } else if(crossedEdge&&outward<=0.18) {
       // Arena lip: gradual inward deflection, never an invisible teleport.
       const nx=p.x/(d||1),ny=p.y/(d||1);
-      if(outward>0){p.vx-=1.35*outward*nx;p.vy-=1.35*outward*ny;}
+      if(outward>0){p.vx-=1.1*outward*nx;p.vy-=1.1*outward*ny;}
       const excess=Math.max(0,d+p.radius-b.radius);
       p.x-=nx*excess;p.y-=ny*excess;
-      // The moving bowl wall transfers momentum rather than silently deleting tops.
-      if(t>30 && outward<0.28){p.vx-=nx*0.025;p.vy-=ny*0.025;}
     }
   }
   const survivors=b.tops.filter(p=>p.alive);
-  if(survivors.length===1){b.winner=survivors[0].id;b.events.push({type:'winner',tick:b.tick,id:b.winner});}
+  if(ringouts.length&&survivors.length===1){
+    b.winner=survivors[0].id;b.events.push({type:'winner',tick:b.tick,id:b.winner});
+  } else if(ringouts.length&&survivors.length===0){
+    b.draw=true;b.events.push({type:'draw',tick:b.tick});
+  }
   return b;
 }
-export function simulate(b,seconds){for(let i=0;i<Math.round(seconds/STEP)&&b.winner===null;i++)step(b);return b;}
+export function simulate(b,seconds){for(let i=0;i<Math.round(seconds/STEP)&&b.winner===null&&!b.draw;i++)step(b);return b;}
