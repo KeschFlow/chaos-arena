@@ -62,13 +62,22 @@
       text-shadow: 0 2px 8px #000;
     }
     #matchup {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      grid-template-rows: auto auto;
+      align-items: center;
+      gap: 3px 6px;
       padding: 9px;
       border-radius: 9px;
       background: #18233a;
       text-align: center;
       font-size: 12px;
     }
-    #matchup strong { margin: 0 8px; color: #fff; font-size: 17px; }
+    #matchup .team { min-width: 0; white-space: nowrap; }
+    #matchup .team.right { text-align: right; }
+    #matchup .team small { display: block; font-size: 10px; }
+    #matchup strong { margin: 0 4px; color: #fff; font-size: 17px; }
+    #matchup .round-info { grid-column: 1 / -1; }
     footer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     button {
       min-width: 0;
@@ -108,7 +117,12 @@
       <div id="status"><span id="timer">00:00</span><span id="count">2 IM RING</span></div>
       <div id="banner" aria-live="polite">EINZEL · 1 GEGEN 1</div>
     </section>
-    <div id="matchup">001 KREISELKREIS <strong>0 : 0</strong> TEAM 002 · KAMPF 1/5 · EINZEL</div>
+    <div id="matchup">
+      <span class="team">001 KREISELKREIS <small id="leftPlayer">SPIELER 1</small></span>
+      <strong>0 : 0</strong>
+      <span class="team right">TEAM 002 <small id="rightPlayer">SPIELER 1</small></span>
+      <small class="round-info">KAMPF <span id="matchCount">1</span> · EINZEL</small>
+    </div>
     <footer>
       <button id="restart">NEUER KAMPF</button>
       <button id="pause" class="secondary">PAUSE</button>
@@ -127,7 +141,10 @@
     const timer = document.querySelector('#timer');
     const count = document.querySelector('#count');
     const roundLabel = document.querySelector('#round');
-    let battle = createBattle(1, [0, 1]);
+    const leftPlayer = document.querySelector('#leftPlayer');
+    const rightPlayer = document.querySelector('#rightPlayer');
+    const matchCount = document.querySelector('#matchCount');
+    let battle = createBattle(1, [0, 1], [1, 1]);
     let running = true;
     let previous = 0;
     let accumulator = 0;
@@ -135,17 +152,29 @@
     let doneAt = 0;
     let eventCursor = 0;
     let audioContext = null;
+    let masterGain = null;
+    let effectsGain = null;
+    let musicGain = null;
+    let tensionGain = null;
+    let musicSources = [];
+    let musicStarted = false;
+    let lastMusicUpdate = 0;
     let soundEnabled = false;
     let lastHitSoundAt = 0;
 
     function restart() {
-      battle = createBattle(++round, [round % 4, (round + 1) % 4]);
+      round++;
+      const player = (round - 1) % 4 + 1;
+      battle = createBattle(round, [round % 4, (round + 1) % 4], [player, player]);
       running = true;
       doneAt = 0;
       accumulator = 0;
       eventCursor = 0;
       banner.textContent = 'EINZEL · 1 GEGEN 1';
       roundLabel.textContent = 'KAMPF ' + round;
+      leftPlayer.textContent = 'SPIELER ' + player;
+      rightPlayer.textContent = 'SPIELER ' + player;
+      matchCount.textContent = round;
       pauseButton.textContent = 'PAUSE';
     }
 
@@ -167,9 +196,106 @@
       gain.gain.exponentialRampToValueAtTime(0.07, start + 0.012);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
       oscillator.connect(gain);
-      gain.connect(audioContext.destination);
+      gain.connect(effectsGain);
+      oscillator.addEventListener('ended', () => {
+        oscillator.disconnect();
+        gain.disconnect();
+      }, {once: true});
       oscillator.start(start);
       oscillator.stop(start + duration + 0.01);
+    }
+
+    function createMusicBuffer(tension = false) {
+      const bpm = 112;
+      const beat = 60 / bpm;
+      const duration = beat * 16;
+      const sampleRate = audioContext.sampleRate;
+      const buffer = audioContext.createBuffer(1, Math.ceil(sampleRate * duration), sampleRate);
+      const samples = buffer.getChannelData(0);
+      const roots = [55, 49, 65.41, 58.27];
+      const chords = [
+        [110, 130.81, 164.81, 196],
+        [98, 116.54, 146.83, 174.61],
+        [130.81, 155.56, 196, 233.08],
+        [116.54, 138.59, 174.61, 207.65]
+      ];
+      const arpeggio = [0, 1, 2, 3, 2, 1, 2, 3];
+      let noise = 0x6d2b79f5;
+      for (let i = 0; i < samples.length; i++) {
+        const time = i / sampleRate;
+        const beatPosition = time / beat;
+        const beatIndex = Math.floor(beatPosition);
+        const beatPhase = beatPosition - beatIndex;
+        const bar = Math.floor(beatIndex / 4) % 4;
+        let value = 0;
+        if (tension) {
+          const stepLength = beat / 2;
+          const step = Math.floor(time / stepLength);
+          const noteAge = time - step * stepLength;
+          const chord = chords[Math.floor(step / 8) % 4];
+          const note = chord[arpeggio[step % 8]];
+          value = Math.sin(2 * Math.PI * note * noteAge) * Math.exp(-noteAge * 5) * 0.13;
+          const hatAge = time % stepLength;
+          noise ^= noise << 13;
+          noise ^= noise >>> 17;
+          noise ^= noise << 5;
+          value += ((noise >>> 0) / 2147483648 - 1) * Math.exp(-hatAge * 100) * 0.025;
+        } else {
+          const kickFrequency = 48 + 78 * Math.exp(-beatPhase * 22);
+          value += Math.sin(2 * Math.PI * kickFrequency * beatPhase) * Math.exp(-beatPhase * 12) * 0.38;
+          const bassFrequency = roots[bar] / 2;
+          value += Math.sin(2 * Math.PI * bassFrequency * beatPhase) * Math.exp(-beatPhase * 2.4) * 0.18;
+          const barPhase = (beatIndex % 4 + beatPhase) / 4;
+          const pad = Math.min(1, barPhase / 0.16, (1 - barPhase) / 0.12) * 0.10;
+          for (const frequency of chords[bar]) {
+            value += Math.sin(2 * Math.PI * frequency * time) * pad * 0.25;
+          }
+          const halfBeatAge = time % (beat / 2);
+          noise ^= noise << 13;
+          noise ^= noise >>> 17;
+          noise ^= noise << 5;
+          value += ((noise >>> 0) / 2147483648 - 1) * Math.exp(-halfBeatAge * 100) * 0.035;
+        }
+        samples[i] = Math.tanh(value * 1.5) * 0.22;
+      }
+      return buffer;
+    }
+
+    function startMusic() {
+      if (musicStarted) return;
+      masterGain = audioContext.createGain();
+      masterGain.gain.value = 0;
+      masterGain.connect(audioContext.destination);
+      effectsGain = audioContext.createGain();
+      effectsGain.gain.value = 0.65;
+      effectsGain.connect(masterGain);
+      musicGain = audioContext.createGain();
+      musicGain.gain.value = 0.55;
+      musicGain.connect(masterGain);
+      tensionGain = audioContext.createGain();
+      tensionGain.gain.value = 0.015;
+      tensionGain.connect(masterGain);
+      for (const [buffer, output] of [
+        [createMusicBuffer(), musicGain],
+        [createMusicBuffer(true), tensionGain]
+      ]) {
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.connect(output);
+        source.start();
+        musicSources.push(source);
+      }
+      musicStarted = true;
+    }
+
+    function updateMusicTension(now) {
+      if (!soundEnabled || !musicStarted || now - lastMusicUpdate < 750) return;
+      lastMusicUpdate = now;
+      const recentHits = battle.events.filter(event => event.type === 'hit' && battle.tick - event.tick < 3600).length;
+      const shrinking = Math.max(0, Math.min(1, (1 - battle.radius) / 0.75));
+      const intensity = Math.max(shrinking, Math.min(1, recentHits / 16));
+      tensionGain.gain.setTargetAtTime(0.015 + intensity * 0.16, audioContext.currentTime, 0.8);
     }
 
     function playEventSound(event) {
@@ -191,9 +317,15 @@
     async function toggleSound() {
       if (soundEnabled) {
         soundEnabled = false;
+        masterGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.025);
         soundButton.textContent = 'TON AUS';
         soundButton.title = 'Spielton einschalten';
         soundButton.setAttribute('aria-pressed', 'false');
+        try {
+          await audioContext.suspend();
+        } catch (error) {
+          console.error('Audio konnte nicht pausiert werden.', error);
+        }
         return;
       }
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -216,6 +348,8 @@
         soundButton.title = 'Der Browser hat die Audio-Ausgabe nicht freigegeben.';
         return;
       }
+      startMusic();
+      masterGain.gain.setTargetAtTime(0.65, audioContext.currentTime, 0.06);
       soundEnabled = true;
       soundButton.textContent = 'TON AN';
       soundButton.title = 'Spielton ausschalten';
@@ -353,6 +487,7 @@
         if (steps >= 12) accumulator = 0;
       }
       showBattleEvents(now);
+      updateMusicTension(now);
       draw();
       if (doneAt && now - doneAt > 5000) restart();
       requestAnimationFrame(frame);
