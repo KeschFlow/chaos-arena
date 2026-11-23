@@ -7,7 +7,7 @@ function reset(){bout=0;score=[0,0];$('#a').textContent='0';$('#b').textContent=
 function step(dt){
  if(finished){delay-=dt;if(delay<=0){if(finished==='draw'){setup();return}if(bout===4){$('#banner').textContent='SPIELTAG ENDE · '+score[0]+':'+score[1];$('#state').textContent='ENDE';delay=Infinity}else{bout++;setup()}}return}
  elapsed+=dt;
- radius=Math.max(22,240-Math.max(0,elapsed-32)*2.2);
+ radius=Math.max(22,240-Math.max(0,elapsed-25)*3.2);
  const alive=tops.filter(p=>p.alive);
  for(const p of alive){
   p.spin+=dt*17;
@@ -15,13 +15,14 @@ function step(dt){
   for(const q of alive){if(q.team===p.team)continue;const d=Math.hypot(q.x-p.x,q.y-p.y);if(d<best){best=d;rival=q}}
   if(rival&&best>1){
    const nx=(rival.x-p.x)/best,ny=(rival.y-p.y)/best;
-   const force=best>34?230:75;
+   const energy=Math.max(0.10,Math.exp(-elapsed/24));
+   const force=(best>34?190:40)*energy;
    p.vx+=nx*force*dt;p.vy+=ny*force*dt;
   }
-  const damp=Math.exp(-.015*dt);
+  const damp=Math.exp(-(.10+Math.min(elapsed/55,1)*.9)*dt);
   p.vx*=damp;p.vy*=damp;
   let speed=Math.hypot(p.vx,p.vy);
-  if(speed<115&&speed>0.01){p.vx*=115/speed;p.vy*=115/speed}
+  // No artificial minimum speed: tops lose momentum as the fight progresses.
   if(speed>245){p.vx*=245/speed;p.vy*=245/speed}
   p.x+=p.vx*dt;p.y+=p.vy*dt;
   const d=Math.hypot(p.x,p.y);
@@ -51,7 +52,7 @@ function step(dt){
   }
   if(p.team!==q.team){
    // Visible recoil even if both tops meet at nearly identical velocity.
-   const kick=85;
+   const kick=65*Math.max(.15,Math.exp(-elapsed/38));
    p.vx-=kick*nx;p.vy-=kick*ny;
    q.vx+=kick*nx;q.vy+=kick*ny;
    beep(190+Math.random()*100,.04);
