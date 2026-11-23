@@ -40,9 +40,13 @@ export function step(b) {
     p.tilt=(1-stability)*0.48;
     const distance=Math.hypot(p.x,p.y)||1;
     // Smooth bowl force, tangential gyroscopic drift, contact friction.
-    const radialForce=0.55*distance/spec.mass;
-    p.vx+=(-p.x/distance*radialForce-p.y/distance*0.015*Math.sign(p.omega))*dt;
-    p.vy+=(-p.y/distance*radialForce+p.x/distance*0.065*Math.sign(p.omega))*dt;
+    const radialForce=(0.18*distance+2.8*Math.pow(distance/Math.max(b.radius,0.45),5))/spec.mass;
+    // Tip contact: a small part of rotational energy becomes tangential motion.
+    // No constant orbit motor: the coupling decreases with spin.
+    const roll=0.003*spec.grip*p.omega*p.tilt;
+    p.vx+=(-p.x/distance*radialForce-p.y/distance*roll)*dt;
+    p.vy+=(-p.y/distance*radialForce+p.x/distance*roll)*dt;
+    p.omega-=Math.sign(p.omega)*Math.min(Math.abs(p.omega),Math.abs(roll)*0.05*dt);
     const damping=Math.exp(-spec.drag*dt);
     p.vx*=damping;p.vy*=damping;
     p.x+=p.vx*dt;p.y+=p.vy*dt;
@@ -80,7 +84,7 @@ export function step(b) {
     const d=Math.hypot(p.x,p.y);
     if(d+p.radius<=b.radius)continue;
     const outward=(p.x*p.vx+p.y*p.vy)/(d||1);
-    if(p.hitBy!==null && b.tick-p.hitTick<Math.round(0.45/STEP) && outward>0){
+    if(d>=b.radius && outward>0.28){
       p.alive=false;
       const attacker=b.tops[p.hitBy];if(attacker)attacker.knockouts++;
       b.events.push({type:'ringout',tick:b.tick,id:p.id,by:p.hitBy});
@@ -89,7 +93,9 @@ export function step(b) {
       const nx=p.x/(d||1),ny=p.y/(d||1);
       if(outward>0){p.vx-=1.35*outward*nx;p.vy-=1.35*outward*ny;}
       const excess=Math.max(0,d+p.radius-b.radius);
-      p.x-=nx*Math.min(excess,0.018);p.y-=ny*Math.min(excess,0.018);
+      p.x-=nx*excess;p.y-=ny*excess;
+      // The moving bowl wall transfers momentum rather than silently deleting tops.
+      if(t>30 && outward<0.28){p.vx-=nx*0.025;p.vy-=ny*0.025;}
     }
   }
   const survivors=b.tops.filter(p=>p.alive);
