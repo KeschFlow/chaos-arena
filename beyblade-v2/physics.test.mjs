@@ -21,16 +21,52 @@ test('no champion with multiple survivors',()=>{
 });
 test('winner only when exactly one survives',()=>{
  const b=simulate(createBattle(9),90);
- if(b.winner!==null){assert.equal(b.tops.filter(p=>p.alive).length,1);assert.equal(b.tops[b.winner].alive,true)}
+ if(b.winner!==null){
+ assert.equal(b.tops.filter(p=>p.alive).length,1);
+ assert.equal(b.tops[b.winner].alive,true);
+ assert.ok(b.events.some(e=>e.type==='ringout'));
+ }
 });
 test('no automatic winner by timeout',()=>{
  const b=createBattle(2);
- b.tops.forEach(p=>{p.vx=0;p.vy=0;p.x=0;p.y=0});
- // A timeout must not directly set winner; any winner needs actual ring-out events.
+ b.tops.forEach(p=>{p.vx=0;p.vy=0;p.x=0;p.y=0;p.omega=0});
  simulate(b,90);
- if(b.winner!==null)assert.ok(b.events.some(e=>e.type==='ringout'));
+ assert.equal(b.winner,null);
+ assert.equal(b.events.some(e=>e.type==='ringout'),false);
+ assert.ok(b.radius<1);
 });
 
 test('default battle is a 1v1 duel',()=>assert.equal(createBattle(5).tops.length,2));
 test('doubles support four contestants',()=>assert.equal(createBattle(5,[0,1,2,3]).tops.length,4));
-test('survivor is not eliminated by same-tick ring-outs',()=>{const b=createBattle(7);b.tops.forEach((p,i)=>{p.x=i?1.2:-1.2;p.y=0;p.vx=i?2:-2;p.vy=0;p.hitBy=1-i;p.hitTick=0});step(b);assert.equal(b.tops.filter(p=>p.alive).length,1);assert.notEqual(b.winner,null)});
+test('winner requires an actual ring-out',()=>{
+ const b=createBattle(7);
+ b.tops[0].x=0.999;b.tops[0].y=0;b.tops[0].vx=2;b.tops[0].vy=0;
+ b.tops[1].x=0;b.tops[1].y=0;b.tops[1].vx=0;b.tops[1].vy=0;
+ step(b);
+ assert.equal(b.tops[0].alive,false);
+ assert.equal(b.tops[1].alive,true);
+ assert.equal(b.winner,1);
+ assert.ok(b.events.some(e=>e.type==='ringout'&&e.id===0));
+});
+test('a lone contestant is not declared winner without a ring-out',()=>{
+ const b=createBattle(7,[0]);
+ b.tops[0].x=0;b.tops[0].y=0;b.tops[0].vx=0;b.tops[0].vy=0;b.tops[0].omega=0;
+ simulate(b,10);
+ assert.equal(b.winner,null);
+ assert.equal(b.events.some(e=>e.type==='ringout'),false);
+});
+test('contracting bowl does not stop before a ring-out',()=>{
+ const b=createBattle(12);
+ b.tops.forEach(p=>{p.x=0;p.y=0;p.vx=0;p.vy=0;p.omega=0});
+ simulate(b,220);
+ assert.ok(b.events.some(e=>e.type==='ringout'));
+ assert.ok(b.radius<0.22);
+});
+test('simultaneous ring-outs do not award a winner',()=>{
+ const b=createBattle(7);
+ b.tops.forEach((p,i)=>{p.x=i?1.2:-1.2;p.y=0;p.vx=i?2:-2;p.vy=0});
+ step(b);
+ assert.equal(b.tops.filter(p=>p.alive).length,0);
+ assert.equal(b.winner,null);
+ assert.equal(b.draw,true);
+});
