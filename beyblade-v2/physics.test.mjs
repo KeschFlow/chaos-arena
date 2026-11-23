@@ -30,3 +30,7 @@ test('no automatic winner by timeout',()=>{
  simulate(b,90);
  if(b.winner!==null)assert.ok(b.events.some(e=>e.type==='ringout'));
 });
+
+test('default battle is a 1v1 duel',()=>assert.equal(createBattle(5).tops.length,2));
+test('doubles support four contestants',()=>assert.equal(createBattle(5,[0,1,2,3]).tops.length,4));
+test('survivor is not eliminated by same-tick ring-outs',()=>{const b=createBattle(7);b.tops.forEach((p,i)=>{p.x=i?1.2:-1.2;p.y=0;p.vx=i?2:-2;p.vy=0;p.hitBy=1-i;p.hitTick=0});step(b);assert.equal(b.tops.filter(p=>p.alive).length,1);assert.notEqual(b.winner,null)});
