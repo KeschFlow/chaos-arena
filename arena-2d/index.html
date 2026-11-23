@@ -2,7 +2,7 @@
 const canvas=document.querySelector('#arena'),ctx=canvas.getContext('2d');let w=600;canvas.width=600;canvas.height=600;
 const bouts=[[[1],[1]],[[2],[2]],[[3,4],[3,4]],[[1],[2]],[[2],[1]]];let bout=0,score=[0,0],tops=[],radius=240,elapsed=0,acc=0,last=0,delay=0,finished=false,sound=false,audio=null,started=false,frameId=null;const $=s=>document.querySelector(s);
 function beep(f=220,d=.08){if(!sound)return;try{audio??=new(window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(.06,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d);o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+d)}catch{}}
-function setup(){radius=240;elapsed=0;delay=0;finished=false;tops=[];const [aa,bb]=bouts[bout];for(const [team,players] of [[0,aa],[1,bb]])for(let j=0;j<players.length;j++){let n=tops.length,ang=2*Math.PI*n/(aa.length+bb.length)+.28;tops.push({team,player:players[j],x:Math.cos(ang)*115,y:Math.sin(ang)*115,vx:-Math.cos(ang)*92-Math.sin(ang)*28,vy:-Math.sin(ang)*92+Math.cos(ang)*28,r:16,alive:true,spin:0})}$('#match').textContent='PARTIE '+(bout+1)+' / 5';$('#players').textContent='Spieler '+aa.join('+')+' vs Spieler '+bb.join('+');$('#banner').textContent='KAMPF LÄUFT';$('#state').textContent='LIVE';}
+function setup(){radius=240;elapsed=0;delay=0;finished=false;tops=[];const [aa,bb]=bouts[bout];for(const [team,players] of [[0,aa],[1,bb]])for(let j=0;j<players.length;j++){let n=tops.length,ang=2*Math.PI*n/(aa.length+bb.length)+.28;tops.push({team,player:players[j],x:Math.cos(ang)*82,y:Math.sin(ang)*82,vx:-Math.cos(ang)*145-Math.sin(ang)*30,vy:-Math.sin(ang)*145+Math.cos(ang)*30,r:16,alive:true,spin:0})}$('#match').textContent='PARTIE '+(bout+1)+' / 5';$('#players').textContent='Spieler '+aa.join('+')+' vs Spieler '+bb.join('+');$('#banner').textContent='KAMPF LÄUFT';$('#state').textContent='LIVE';}
 function reset(){bout=0;score=[0,0];$('#a').textContent='0';$('#b').textContent='0';setup()}
 function step(dt){
  if(finished){delay-=dt;if(delay<=0){if(finished==='draw'){setup();return}if(bout===4){$('#banner').textContent='SPIELTAG ENDE · '+score[0]+':'+score[1];$('#state').textContent='ENDE';delay=Infinity}else{bout++;setup()}}return}
@@ -15,20 +15,20 @@ function step(dt){
   for(const q of alive){if(q.team===p.team)continue;const d=Math.hypot(q.x-p.x,q.y-p.y);if(d<best){best=d;rival=q}}
   if(rival&&best>1){
    const nx=(rival.x-p.x)/best,ny=(rival.y-p.y)/best;
-   const force=best>34?115:22;
+   const force=best>34?230:75;
    p.vx+=nx*force*dt;p.vy+=ny*force*dt;
   }
-  const damp=Math.exp(-.035*dt);
+  const damp=Math.exp(-.015*dt);
   p.vx*=damp;p.vy*=damp;
   let speed=Math.hypot(p.vx,p.vy);
-  if(speed<65&&speed>0.01){p.vx*=65/speed;p.vy*=65/speed}
-  if(speed>155){p.vx*=155/speed;p.vy*=155/speed}
+  if(speed<115&&speed>0.01){p.vx*=115/speed;p.vy*=115/speed}
+  if(speed>245){p.vx*=245/speed;p.vy*=245/speed}
   p.x+=p.vx*dt;p.y+=p.vy*dt;
   const d=Math.hypot(p.x,p.y);
   if(d+p.r>radius){
    const nx=p.x/(d||1),ny=p.y/(d||1),outward=p.vx*nx+p.vy*ny;
    // A strong outward impact or the contracting boundary causes a real ring-out.
-   if(d+p.r>radius+5||outward>95||radius<35){p.alive=false;beep(110,.2)}
+   if(d+p.r>radius+5||outward>185||radius<35){p.alive=false;beep(110,.2)}
    else{
     if(outward>0){p.vx-=1.55*outward*nx;p.vy-=1.55*outward*ny}
     p.x=nx*(radius-p.r);p.y=ny*(radius-p.r);
@@ -51,7 +51,7 @@ function step(dt){
   }
   if(p.team!==q.team){
    // Visible recoil even if both tops meet at nearly identical velocity.
-   const kick=34;
+   const kick=85;
    p.vx-=kick*nx;p.vy-=kick*ny;
    q.vx+=kick*nx;q.vy+=kick*ny;
    beep(190+Math.random()*100,.04);
