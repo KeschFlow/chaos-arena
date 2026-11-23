@@ -30,3 +30,11 @@ test('no automatic winner by timeout',()=>{
  simulate(b,90);
  if(b.winner!==null)assert.ok(b.events.some(e=>e.type==='ringout'));
 });
+
+test('all standard battles finish through physical ring-outs within 120 seconds',()=>{
+ for(let seed=1;seed<=20;seed++){
+  const b=simulate(createBattle(seed),120);
+  assert.notEqual(b.winner,null,'seed '+seed+' did not finish');
+  assert.equal(b.events.filter(e=>e.type==='ringout').length,3,'seed '+seed+' needs three ring-outs');
+ }
+});
