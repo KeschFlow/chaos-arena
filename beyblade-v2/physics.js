@@ -12,17 +12,17 @@ export const TYPES = [
   {name:'Balance',mass:1.1,grip:1,drag:0.014,spinDrag:0.023,attack:1.05,color:'#ffc45b'}
 ];
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
-export function createBattle(seed=1, contestants=[0,1]) {
+export function createBattle(seed=1, contestants=[0,1], playerNumbers=contestants.map((_,i)=>i+1)) {
   const random=rng(seed);
   const n=contestants.length;
   const tops=contestants.map((type,i)=>{
     const spec=TYPES[type],angle=2*Math.PI*i/n+random()*0.12,rad=0.47;
-    return {id:i,type,name:spec.name+' '+(i+1),x:Math.cos(angle)*rad,y:Math.sin(angle)*rad,
-      vx:-Math.cos(angle)*(0.65+random()*0.18)-Math.sin(angle)*0.10,vy:-Math.sin(angle)*(0.65+random()*0.18)+Math.cos(angle)*0.10,
+    return {id:i,type,name:'Spieler '+(playerNumbers[i]??i+1),x:Math.cos(angle)*rad,y:Math.sin(angle)*rad,
+      vx:-Math.cos(angle)*(0.82+random()*0.22)-Math.sin(angle)*0.12,vy:-Math.sin(angle)*(0.82+random()*0.22)+Math.cos(angle)*0.12,
       angle:random()*Math.PI*2,omega:(random()<0.5?-1:1)*(35+random()*12),
       radius:0.105,mass:spec.mass,alive:true,tilt:0,hitBy:null,hitTick:-1,knockouts:0};
   });
-  return {seed,tick:0,radius:1,tops,events:[],winner:null,draw:false};
+  return {seed,tick:0,radius:1,tops,events:[],contacts:new Set(),winner:null,draw:false};
 }
 export function step(b) {
   if(b.winner!==null||b.draw) return b;
@@ -32,8 +32,21 @@ export function step(b) {
   // Keep the contracting bowl active until it can no longer contain a top.
   b.radius=Math.max(0.04,1-Math.max(0,t-30)*0.007);
   const shrinking=b.radius<previousRadius;
-  for(const p of b.tops) {
-    if(!p.alive)continue;
+  const activeAtStart=b.tops.filter(p=>p.alive);
+  const pursuit=activeAtStart.map(p=>{
+    const rival=activeAtStart.reduce((nearest,q)=>{
+      if(q===p)return nearest;
+      const distance=Math.hypot(q.x-p.x,q.y-p.y);
+      return !nearest||distance<nearest.distance?{top:q,distance}:nearest;
+    },null);
+    if(!rival)return {x:0,y:0};
+    if(rival.distance<1e-9)return {x:0,y:0};
+    const separation=p.radius+rival.top.radius;
+    const strength=1.5*TYPES[p.type].attack*clamp((rival.distance-separation)*1.5,0,1);
+    return {x:(rival.top.x-p.x)/rival.distance*strength,y:(rival.top.y-p.y)/rival.distance*strength};
+  });
+  for(let i=0;i<activeAtStart.length;i++) {
+    const p=activeAtStart[i];
     const spec=TYPES[p.type];
     p.angle+=p.omega*dt;
     p.omega*=Math.exp(-spec.spinDrag*dt);
@@ -45,9 +58,9 @@ export function step(b) {
     const radialForce=(0.18*distance+2.8*Math.pow(distance/Math.max(b.radius,0.12),5))/spec.mass;
     // Tip contact: a small part of rotational energy becomes tangential motion.
     // No constant orbit motor: the coupling decreases with spin.
-    const roll=0.003*spec.grip*p.omega*p.tilt;
-    p.vx+=(-p.x/distance*radialForce-p.y/distance*roll)*dt;
-    p.vy+=(-p.y/distance*radialForce+p.x/distance*roll)*dt;
+    const roll=0.005*spec.grip*p.omega*p.tilt;
+    p.vx+=(-p.x/distance*radialForce-p.y/distance*roll+pursuit[i].x)*dt;
+    p.vy+=(-p.y/distance*radialForce+p.x/distance*roll+pursuit[i].y)*dt;
     p.omega-=Math.sign(p.omega)*Math.min(Math.abs(p.omega),Math.abs(roll)*0.05*dt);
     const damping=Math.exp(-spec.drag*dt);
     p.vx*=damping;p.vy*=damping;
@@ -55,30 +68,38 @@ export function step(b) {
   }
   // Resolve contact impulses based on relative velocity, mass, and spin tangential velocity.
   const active=b.tops.filter(p=>p.alive);
+  const contacts=new Set();
   for(let i=0;i<active.length;i++)for(let j=i+1;j<active.length;j++){
     const a=active[i],c=active[j];
     let dx=c.x-a.x,dy=c.y-a.y,d=Math.hypot(dx,dy),min=a.radius+c.radius;
     if(d>=min)continue;
+    const contactKey=`${a.id}:${c.id}`;
+    const ongoingContact=b.contacts.has(contactKey);
     const nx=d>1e-9?dx/d:1,ny=d>1e-9?dy/d:0;
     const invA=1/a.mass,invC=1/c.mass,overlap=min-d;
     a.x-=nx*overlap*invA/(invA+invC);a.y-=ny*overlap*invA/(invA+invC);
     c.x+=nx*overlap*invC/(invA+invC);c.y+=ny*overlap*invC/(invA+invC);
     const rvx=c.vx-a.vx,rvy=c.vy-a.vy,normal=rvx*nx+rvy*ny;
-    if(normal>=0)continue;
-    const restitution=0.72;
+    if(normal>=0){
+      if(ongoingContact)contacts.add(contactKey);
+      continue;
+    }
+    contacts.add(contactKey);
+    const restitution=0.86;
     const impulse=-(1+restitution)*normal/(invA+invC);
     a.vx-=impulse*nx*invA;a.vy-=impulse*ny*invA;
     c.vx+=impulse*nx*invC;c.vy+=impulse*ny*invC;
     // Coulomb tangential impulse and simplified spin transfer.
     const tx=-ny,ty=nx;
     const tangential=(c.vx-a.vx)*tx+(c.vy-a.vy)*ty - (a.omega*a.radius+c.omega*c.radius)*0.035;
-    const friction=clamp(-tangential/(invA+invC),-impulse*0.16,impulse*0.16);
+    const friction=clamp(-tangential/(invA+invC),-impulse*0.20,impulse*0.20);
     a.vx-=friction*tx*invA;a.vy-=friction*ty*invA;
     c.vx+=friction*tx*invC;c.vy+=friction*ty*invC;
     a.omega+=friction*0.4/a.mass;c.omega+=friction*0.4/c.mass;
     a.hitBy=c.id;c.hitBy=a.id;a.hitTick=b.tick;c.hitTick=b.tick;
-    b.events.push({type:'hit',tick:b.tick,a:a.id,c:c.id,strength:Math.abs(normal)});
+    if(!ongoingContact)b.events.push({type:'hit',tick:b.tick,a:a.id,c:c.id,strength:Math.abs(normal)});
   }
+  b.contacts=contacts;
   // A top leaves when its body crosses the lip or the shrinking bowl passes underneath it.
   const ringouts=[];
   for(const p of b.tops){

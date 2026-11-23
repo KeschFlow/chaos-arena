@@ -4,6 +4,9 @@ import {createBattle,step,simulate,STEP,TYPES} from './physics.js';
 test('four distinct top classes',()=>assert.equal(new Set(TYPES.map(t=>t.name)).size,4));
 test('fixed timestep is 120 Hz',()=>assert.equal(STEP,1/120));
 test('same seed produces same initial state',()=>assert.deepEqual(createBattle(123),createBattle(123)));
+test('fighter labels use player numbers rather than roles',()=>{
+ assert.deepEqual(createBattle(123,[0,1],[2,4]).tops.map(p=>p.name),['Spieler 2','Spieler 4']);
+});
 test('same seed and tick count produce same state',()=>{
  const a=createBattle(77),b=createBattle(77);
  for(let i=0;i<1200;i++){step(a);step(b)}
@@ -61,6 +64,28 @@ test('contracting bowl does not stop before a ring-out',()=>{
  simulate(b,220);
  assert.ok(b.events.some(e=>e.type==='ringout'));
  assert.ok(b.radius<0.22);
+});
+test('overlapping tops keep pursuit forces finite',()=>{
+ const b=createBattle(12);
+ b.tops.forEach(p=>{p.x=0;p.y=0;p.vx=0;p.vy=0});
+ step(b);
+ assert.ok(b.tops.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.vx)&&Number.isFinite(p.vy)));
+});
+test('seeded duels produce frequent contacts and only ring-out winners',()=>{
+ let hitCount=0,longestGap=0;
+ for(let seed=1;seed<=20;seed++){
+  const b=createBattle(seed);
+  simulate(b,180);
+  const hits=b.events.filter(e=>e.type==='hit');
+  const ringouts=b.events.filter(e=>e.type==='ringout');
+  hitCount+=hits.length;
+  for(let i=1;i<hits.length;i++)longestGap=Math.max(longestGap,(hits[i].tick-hits[i-1].tick)*STEP);
+  assert.ok(ringouts.length>0,`seed ${seed} must end with a ring-out`);
+  assert.equal(b.tops.filter(p=>p.alive).length,1);
+  assert.ok(b.events.some(e=>e.type==='winner'&&e.id===b.winner));
+ }
+ assert.ok(hitCount/20>60,`average hits ${hitCount/20} should exceed the 36.1 baseline`);
+ assert.ok(longestGap<15,`longest inter-hit gap ${longestGap}s should remain under 15 seconds`);
 });
 test('simultaneous ring-outs do not award a winner',()=>{
  const b=createBattle(7);
