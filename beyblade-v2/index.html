@@ -8,7 +8,7 @@ let battle=createBattle(1,[0,1]),running=true,previous=0,accumulator=0,round=1,d
 function restart(){battle=createBattle(++round,[round%4,(round+1)%4]);running=true;doneAt=0;accumulator=0;banner.textContent='EINZEL · 1 GEGEN 1';document.querySelector('#round').textContent='KAMPF '+round;document.querySelector('#pause').textContent='PAUSE'}
 document.querySelector('#restart').onclick=restart;document.querySelector('#pause').onclick=()=>{running=!running;document.querySelector('#pause').textContent=running?'PAUSE':'WEITER'};
 function topDraw(p,cx,cy,scale){
- const x=cx+p.x*scale,y=cy+p.y*scale,r=p.radius*scale;
+ const x=cx+p.x*scale,y=cy+p.y*scale*.79+(p.x*p.x+p.y*p.y)*scale*.045,r=p.radius*scale*1.32;
  ctx.save();ctx.translate(x,y);ctx.rotate(p.angle);
  ctx.shadowColor='#000';ctx.shadowBlur=12;ctx.shadowOffsetY=7;
  ctx.fillStyle='#050713';ctx.beginPath();ctx.ellipse(0,r*.34,r*1.04,r*.78,0,0,Math.PI*2);ctx.fill();
@@ -25,13 +25,16 @@ function draw(){
  if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr)}
  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
  const cx=w/2,cy=h/2,scale=Math.min(w*.46,h*.40);
- ctx.save();ctx.translate(cx,cy);ctx.scale(1,.85);
+ ctx.save();ctx.translate(cx,cy);ctx.scale(1,.79);
  const rad=battle.radius*scale;
  const glow=ctx.createRadialGradient(0,0,rad*.1,0,0,rad);
- glow.addColorStop(0,'#21395c');glow.addColorStop(.85,'#111d35');glow.addColorStop(1,'#050915');
+ glow.addColorStop(0,'#172a48');glow.addColorStop(.55,'#263e60');glow.addColorStop(.79,'#365176');glow.addColorStop(.91,'#567398');glow.addColorStop(1,'#a1b9df');
  ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,rad,0,Math.PI*2);ctx.fill();
- ctx.strokeStyle='#7da7ff';ctx.lineWidth=8;ctx.shadowColor='#5576ff';ctx.shadowBlur=15;ctx.beginPath();ctx.arc(0,0,rad,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
- for(let r=.25;r<1;r+=.25){ctx.strokeStyle='#33486a';ctx.lineWidth=1;ctx.beginPath();ctx.arc(0,0,rad*r,0,Math.PI*2);ctx.stroke()}
+ ctx.strokeStyle='#b3c9ee';ctx.lineWidth=12;ctx.shadowColor='#5576ff';ctx.shadowBlur=14;ctx.beginPath();ctx.arc(0,0,rad,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
+ for(let r=.25;r<1;r+=.25){ctx.strokeStyle='rgba(173,205,246,.17)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(0,0,rad*r,0,Math.PI*2);ctx.stroke()}
+ // Inner slope highlight gives the bowl a raised wall and a lower center.
+ ctx.strokeStyle='rgba(198,222,255,.23)';ctx.lineWidth=rad*.11;
+ ctx.beginPath();ctx.arc(0,0,rad*.89,Math.PI*.04,Math.PI*.96);ctx.stroke();
  ctx.restore();
  for(const p of battle.tops.filter(p=>p.alive))topDraw(p,cx,cy,scale);
  const seconds=Math.floor(battle.tick*STEP);document.querySelector('#timer').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
