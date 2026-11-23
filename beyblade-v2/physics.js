@@ -40,9 +40,10 @@ export function step(b) {
     p.tilt=(1-stability)*0.48;
     const distance=Math.hypot(p.x,p.y)||1;
     // Smooth bowl force, tangential gyroscopic drift, contact friction.
-    const radialForce=0.55*distance/spec.mass;
+    // Bowl profile h(r)=0.10*r²+0.48*r⁶: steep rounded outer wall.
+    const radialForce=(0.20*distance+2.88*Math.pow(distance,5))/spec.mass;
     p.vx+=(-p.x/distance*radialForce-p.y/distance*0.015*Math.sign(p.omega))*dt;
-    p.vy+=(-p.y/distance*radialForce+p.x/distance*0.065*Math.sign(p.omega))*dt;
+    p.vy+=(-p.y/distance*radialForce+p.x/distance*0.015*Math.sign(p.omega))*dt;
     const damping=Math.exp(-spec.drag*dt);
     p.vx*=damping;p.vy*=damping;
     p.x+=p.vx*dt;p.y+=p.vy*dt;
@@ -73,23 +74,29 @@ export function step(b) {
     a.hitBy=c.id;c.hitBy=a.id;a.hitTick=b.tick;c.hitTick=b.tick;
     b.events.push({type:'hit',tick:b.tick,a:a.id,c:c.id,strength:Math.abs(normal)});
   }
-  // A ring-out requires the top to cross the edge, with a recent physical collision.
+  // A physical lip, not a hit-timer: outward kinetic energy must clear the raised rim.
+  // A top may leave without a recent collision if it has sufficient launch energy.
   for(const p of b.tops){
     if(!p.alive)continue;
     if(b.tops.filter(q=>q.alive).length<=1)break;
-    const d=Math.hypot(p.x,p.y);
-    if(d+p.radius<=b.radius)continue;
-    const outward=(p.x*p.vx+p.y*p.vy)/(d||1);
-    if(p.hitBy!==null && b.tick-p.hitTick<Math.round(0.45/STEP) && outward>0){
+    const d=Math.hypot(p.x,p.y),nx=p.x/(d||1),ny=p.y/(d||1);
+    const edge=b.radius-p.radius;
+    if(d<=edge)continue;
+    const outward=p.vx*nx+p.vy*ny;
+    // Geometric rise from bowl floor to rim; shrinking radius raises pressure,
+    // but never teleports a top outside or directly eliminates it.
+    const climb=Math.max(0,d-edge);
+    const rimBarrier=0.22+climb*1.5;
+    if(d>b.radius && outward>0 && outward*outward>rimBarrier){
       p.alive=false;
-      const attacker=b.tops[p.hitBy];if(attacker)attacker.knockouts++;
-      b.events.push({type:'ringout',tick:b.tick,id:p.id,by:p.hitBy});
-    } else {
-      // Arena lip: gradual inward deflection, never an invisible teleport.
-      const nx=p.x/(d||1),ny=p.y/(d||1);
-      if(outward>0){p.vx-=1.35*outward*nx;p.vy-=1.35*outward*ny;}
-      const excess=Math.max(0,d+p.radius-b.radius);
-      p.x-=nx*Math.min(excess,0.018);p.y-=ny*Math.min(excess,0.018);
+      const by=p.hitBy;
+      if(by!==null && b.tops[by])b.tops[by].knockouts++;
+      b.events.push({type:'ringout',tick:b.tick,id:p.id,by});
+    } else if(outward>0){
+      // Climbing the lip drains outward momentum; gravity sends it back down.
+      const brake=Math.min(outward,(0.8+climb*6)*dt);
+      p.vx-=nx*brake;p.vy-=ny*brake;
+      if(d>=b.radius){p.vx-=nx*outward*0.6;p.vy-=ny*outward*0.6;}
     }
   }
   const survivors=b.tops.filter(p=>p.alive);
