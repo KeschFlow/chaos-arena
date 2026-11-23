@@ -12,13 +12,13 @@ export const TYPES = [
   {name:'Balance',mass:1.1,grip:1,drag:0.014,spinDrag:0.023,attack:1.05,color:'#ffc45b'}
 ];
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
-export function createBattle(seed=1, contestants=[0,1,2,3]) {
+export function createBattle(seed=1, contestants=[0,1]) {
   const random=rng(seed);
   const n=contestants.length;
   const tops=contestants.map((type,i)=>{
-    const spec=TYPES[type],angle=2*Math.PI*i/n+random()*0.2,rad=0.42;
+    const spec=TYPES[type],angle=2*Math.PI*i/n+random()*0.12,rad=0.47;
     return {id:i,type,name:spec.name+' '+(i+1),x:Math.cos(angle)*rad,y:Math.sin(angle)*rad,
-      vx:-Math.sin(angle)*(0.35+random()*0.2),vy:Math.cos(angle)*(0.35+random()*0.2),
+      vx:-Math.cos(angle)*(0.65+random()*0.18)-Math.sin(angle)*0.10,vy:-Math.sin(angle)*(0.65+random()*0.18)+Math.cos(angle)*0.10,
       angle:random()*Math.PI*2,omega:(random()<0.5?-1:1)*(35+random()*12),
       radius:0.105,mass:spec.mass,alive:true,tilt:0,hitBy:null,hitTick:-1,knockouts:0};
   });
@@ -40,8 +40,8 @@ export function step(b) {
     p.tilt=(1-stability)*0.48;
     const distance=Math.hypot(p.x,p.y)||1;
     // Smooth bowl force, tangential gyroscopic drift, contact friction.
-    const radialForce=0.24*distance/spec.mass;
-    p.vx+=(-p.x/distance*radialForce-p.y/distance*0.065*Math.sign(p.omega))*dt;
+    const radialForce=0.55*distance/spec.mass;
+    p.vx+=(-p.x/distance*radialForce-p.y/distance*0.015*Math.sign(p.omega))*dt;
     p.vy+=(-p.y/distance*radialForce+p.x/distance*0.065*Math.sign(p.omega))*dt;
     const damping=Math.exp(-spec.drag*dt);
     p.vx*=damping;p.vy*=damping;
@@ -76,10 +76,11 @@ export function step(b) {
   // A ring-out requires the top to cross the edge, with a recent physical collision.
   for(const p of b.tops){
     if(!p.alive)continue;
+    if(b.tops.filter(q=>q.alive).length<=1)break;
     const d=Math.hypot(p.x,p.y);
     if(d+p.radius<=b.radius)continue;
     const outward=(p.x*p.vx+p.y*p.vy)/(d||1);
-    if(p.hitBy!==null && b.tick-p.hitTick<Math.round(3/STEP) && outward>0){
+    if(p.hitBy!==null && b.tick-p.hitTick<Math.round(0.45/STEP) && outward>0){
       p.alive=false;
       const attacker=b.tops[p.hitBy];if(attacker)attacker.knockouts++;
       b.events.push({type:'ringout',tick:b.tick,id:p.id,by:p.hitBy});
